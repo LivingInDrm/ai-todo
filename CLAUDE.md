@@ -152,8 +152,5 @@ Required in `.env` (see `.env.example`):
 
 ## Testing Approach
 
-Currently no tests implemented. When adding tests:
-- Unit tests for stores using Jest
-- Component tests with React Native Testing Library
-- E2E tests with Detox or Maestro
-- Database migration tests critical for production
+Currently no tests implemented. 
+When adding tests, follow the design in `test_design.md` and test development roadmap in `test_plan.md`.

@@ -21,6 +21,45 @@
 - **性能测试**：验证响应时间和资源占用
 - **兼容性测试**：iOS/Android/Web平台测试
 
+### 1.4 测试文件的目录结构
+按功能模块组织测试，测试代码放在对应模块的 __tests__ 目录中，统一管理 E2E 测试在 tests/e2e/ 下
+例如：
+AI-TODO/
+├── features/
+│   ├── task/
+│   │   ├── taskService.ts
+│   │   ├── taskStore.ts
+│   │   ├── __tests__/
+│   │   │   ├── taskService.unit.test.ts
+│   │   │   ├── taskStore.unit.test.ts
+│   │   │   └── taskFlow.integration.test.tsx
+│   │
+│   ├── draft/
+│   │   ├── draftFlow.ts
+│   │   ├── __tests__/
+│   │   │   ├── draftFlow.unit.test.ts
+│   │   │   └── draftScreen.integration.test.tsx
+│   │
+│   ├── voice/
+│   │   ├── voiceFlow.ts
+│   │   ├── __tests__/
+│   │   │   ├── voiceFlow.unit.test.ts
+│   │   │   └── voiceButton.integration.test.tsx
+│   │
+│   └── ...
+│
+├── components/
+│   ├── TaskCell.tsx
+│   ├── __tests__/
+│   │   ├── TaskCell.test.tsx
+│
+├── tests/
+│   └── e2e/
+│       ├── create-task.e2e.ts
+│       ├── voice-to-draft.e2e.ts
+│       └── push-notification.e2e.ts
+...
+
 ---
 
 ## 2. 测试环境
