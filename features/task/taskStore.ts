@@ -1,0 +1,203 @@
+import { create } from 'zustand';
+import { Q } from '@nozbe/watermelondb';
+import database, { Task } from '../../db/database';
+import { TaskData, TaskStatus, TaskView } from '../../lib/types';
+
+interface TaskStore {
+  tasks: TaskData[];
+  loading: boolean;
+  error: string | null;
+  currentView: TaskView;
+  
+  // Actions
+  fetchTasks: () => Promise<void>;
+  createTask: (title: string, dueTs?: number, urgent?: boolean) => Promise<Task>;
+  updateTask: (id: string, updates: Partial<TaskData>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  toggleTaskStatus: (id: string) => Promise<void>;
+  postponeTask: (id: string, newDueTs: number) => Promise<void>;
+  pinTask: (id: string) => Promise<void>;
+  setCurrentView: (view: TaskView) => void;
+  
+  // Computed
+  getFocusTasks: () => TaskData[];
+  getBacklogTasks: () => TaskData[];
+  getDoneTasks: () => TaskData[];
+}
+
+const useTaskStore = create<TaskStore>((set, get) => ({
+  tasks: [],
+  loading: false,
+  error: null,
+  currentView: TaskView.Focus,
+
+  fetchTasks: async () => {
+    set({ loading: true, error: null });
+    try {
+      const tasks = await database.collections
+        .get<Task>('tasks')
+        .query(Q.where('pending', false))
+        .fetch();
+      
+      const taskData = tasks.map(task => ({
+        id: task.id,
+        title: task.title,
+        dueTs: task.dueTs,
+        urgent: task.urgent,
+        status: task.status,
+        pending: task.pending,
+        completedTs: task.completedTs,
+        createdTs: task.createdTs,
+        updatedTs: task.updatedTs,
+      }));
+      
+      set({ tasks: taskData, loading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false });
+    }
+  },
+
+  createTask: async (title: string, dueTs?: number, urgent = false) => {
+    try {
+      const newTask = await database.write(async () => {
+        return await database.collections.get<Task>('tasks').create(task => {
+          task.title = title;
+          task.dueTs = dueTs;
+          task.urgent = urgent;
+          task.status = TaskStatus.Active;
+          task.pending = false;
+          task.createdTs = Date.now();
+          task.updatedTs = Date.now();
+        });
+      });
+      
+      await get().fetchTasks();
+      return newTask;
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
+  updateTask: async (id: string, updates: Partial<TaskData>) => {
+    try {
+      await database.write(async () => {
+        const task = await database.collections.get<Task>('tasks').find(id);
+        await task.update(t => {
+          if (updates.title !== undefined) t.title = updates.title;
+          if (updates.dueTs !== undefined) t.dueTs = updates.dueTs;
+          if (updates.urgent !== undefined) t.urgent = updates.urgent;
+          if (updates.status !== undefined) t.status = updates.status;
+          if (updates.completedTs !== undefined) t.completedTs = updates.completedTs;
+          t.updatedTs = Date.now();
+        });
+      });
+      
+      await get().fetchTasks();
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  deleteTask: async (id: string) => {
+    try {
+      await database.write(async () => {
+        const task = await database.collections.get<Task>('tasks').find(id);
+        await task.markAsDeleted();
+      });
+      
+      await get().fetchTasks();
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  toggleTaskStatus: async (id: string) => {
+    try {
+      await database.write(async () => {
+        const task = await database.collections.get<Task>('tasks').find(id);
+        if (task.isCompleted) {
+          await task.markAsActive();
+        } else {
+          await task.markAsCompleted();
+        }
+      });
+      
+      await get().fetchTasks();
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  postponeTask: async (id: string, newDueTs: number) => {
+    try {
+      await database.write(async () => {
+        const task = await database.collections.get<Task>('tasks').find(id);
+        await task.postpone(newDueTs);
+      });
+      
+      await get().fetchTasks();
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  pinTask: async (id: string) => {
+    const tasks = get().tasks;
+    const taskToPin = tasks.find(t => t.id === id);
+    if (!taskToPin) return;
+    
+    const otherTasks = tasks.filter(t => t.id !== id);
+    set({ tasks: [taskToPin, ...otherTasks] });
+  },
+
+  setCurrentView: (view: TaskView) => {
+    set({ currentView: view });
+  },
+
+  getFocusTasks: () => {
+    const { tasks } = get();
+    const now = Date.now();
+    const weekFromNow = now + (7 * 24 * 60 * 60 * 1000);
+    
+    return tasks
+      .filter(task => 
+        task.status === TaskStatus.Active && 
+        (!task.dueTs || task.dueTs <= weekFromNow)
+      )
+      .sort((a, b) => {
+        if (!a.dueTs && !b.dueTs) return 0;
+        if (!a.dueTs) return 1;
+        if (!b.dueTs) return -1;
+        return a.dueTs - b.dueTs;
+      });
+  },
+
+  getBacklogTasks: () => {
+    const { tasks } = get();
+    const now = Date.now();
+    const weekFromNow = now + (7 * 24 * 60 * 60 * 1000);
+    
+    return tasks
+      .filter(task => 
+        task.status === TaskStatus.Active && 
+        (!task.dueTs || task.dueTs > weekFromNow)
+      )
+      .sort((a, b) => b.createdTs - a.createdTs);
+  },
+
+  getDoneTasks: () => {
+    const { tasks } = get();
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    
+    return tasks
+      .filter(task => 
+        task.status === TaskStatus.Completed && 
+        task.completedTs && 
+        task.completedTs >= thirtyDaysAgo
+      )
+      .sort((a, b) => (b.completedTs || 0) - (a.completedTs || 0));
+  },
+}));
+
+export default useTaskStore;
