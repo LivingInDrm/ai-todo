@@ -60,20 +60,20 @@
   - [x] 紧急标记切换 ✅
   - [x] 自动保存逻辑 ✅
 
-### Phase 6: 语音输入功能
-- [ ] 实现语音录制
-  - [ ] VoiceButton 组件
-  - [ ] expo-av 录音封装
-- [ ] 集成 Whisper API
-  - [ ] 音频上传逻辑
-  - [ ] 转写结果处理
-- [ ] 集成 GPT-4o
-  - [ ] 实现 function calling
-  - [ ] 解析任务操作
-- [ ] 实现草稿确认流程
-  - [ ] Draft 区域 UI
-  - [ ] 批量确认逻辑
-  - [ ] 撤销功能
+### Phase 6: 语音输入功能 ✅
+- [x] 实现语音录制 ✅
+  - [x] VoiceButton 组件 ✅
+  - [x] expo-av 录音封装 ✅
+- [x] 集成 Whisper API ✅
+  - [x] 音频上传逻辑 ✅
+  - [x] 转写结果处理 ✅
+- [x] 集成 GPT-4o ✅
+  - [x] 实现 function calling ✅
+  - [x] 解析任务操作 ✅
+- [x] 实现草稿确认流程 ✅
+  - [x] Draft 区域 UI ✅
+  - [x] 批量确认逻辑 ✅
+  - [x] 撤销功能 ✅
 
 ### Phase 7: Supabase 集成
 - [ ] 配置 Supabase
@@ -122,8 +122,8 @@
   - [ ] 端到端测试
 
 ## 当前进度
-**当前阶段**: Phase 4 & 5 完成 ✅
-**下一步**: Phase 6 - 语音输入功能
+**当前阶段**: Phase 6 完成 ✅
+**下一步**: Phase 7 - Supabase 集成
 
 ## 验证标准
 每个子任务完成后的验证方式：

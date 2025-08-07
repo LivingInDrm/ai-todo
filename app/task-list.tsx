@@ -21,6 +21,7 @@ import Snackbar from '../components/Snackbar';
 import FloatingBar from '../components/FloatingBar';
 import TaskDetailSheet, { TaskDetailSheetRef } from '../components/TaskDetailSheet';
 import MoreActionSheet, { MoreActionSheetRef } from '../components/MoreActionSheet';
+import voiceFlow from '../features/voice/voiceFlow';
 
 export default function TaskListScreen() {
   const {
@@ -49,10 +50,11 @@ export default function TaskListScreen() {
     confirmSelectedDrafts,
     confirmSingleDraft,
     fetchDrafts,
+    undoLastConfirmation,
   } = useDraftStore();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [snackbar, setSnackbar] = useState({ visible: false, message: '', actionText: '' });
+  const [snackbar, setSnackbar] = useState({ visible: false, message: '', actionText: '', undoType: '' });
   const [selectedTask, setSelectedTask] = useState<TaskData | undefined>();
   const [undoTasks, setUndoTasks] = useState<string[]>([]);
 
@@ -92,7 +94,7 @@ export default function TaskListScreen() {
   const handleTaskSwipeRight = async (task: TaskData) => {
     await toggleTaskStatus(task.id);
     const message = task.status === 0 ? '任务已完成' : '任务已恢复';
-    setSnackbar({ visible: true, message, actionText: '撤销' });
+    setSnackbar({ visible: true, message, actionText: '撤销', undoType: 'taskStatus' });
     setUndoTasks([task.id]);
   };
 
@@ -127,7 +129,7 @@ export default function TaskListScreen() {
           style: 'destructive',
           onPress: async () => {
             await deleteTask(id);
-            setSnackbar({ visible: true, message: '任务已删除', actionText: '' });
+            setSnackbar({ visible: true, message: '任务已删除', actionText: '', undoType: '' });
           },
         },
       ]
@@ -162,30 +164,42 @@ export default function TaskListScreen() {
     }
 
     await postponeTask(selectedTask.id, newDueTs);
-    setSnackbar({ visible: true, message: '任务已延后', actionText: '' });
+    setSnackbar({ visible: true, message: '任务已延后', actionText: '', undoType: '' });
   };
 
   const handlePin = async () => {
     if (!selectedTask) return;
     await pinTask(selectedTask.id);
-    setSnackbar({ visible: true, message: '任务已置顶', actionText: '' });
+    setSnackbar({ visible: true, message: '任务已置顶', actionText: '', undoType: '' });
   };
 
   const handleConfirmDrafts = async () => {
     const result = await confirmSelectedDrafts();
     const message = `已添加 ${result.added} 项${result.completed > 0 ? `，已完成 ${result.completed} 项` : ''}`;
-    setSnackbar({ visible: true, message, actionText: '撤销' });
-    // Store task IDs for undo
-    // setUndoTasks([...]);
+    setSnackbar({ visible: true, message, actionText: '撤销', undoType: 'draftConfirm' });
   };
 
   const handleUndoSnackbar = async () => {
-    if (undoTasks.length > 0) {
-      // Implement undo logic
+    if (snackbar.undoType === 'taskStatus' && undoTasks.length > 0) {
+      // Undo task status change
       for (const taskId of undoTasks) {
         await toggleTaskStatus(taskId);
       }
       setUndoTasks([]);
+    } else if (snackbar.undoType === 'draftConfirm') {
+      // Undo draft confirmation
+      await undoLastConfirmation();
+    }
+  };
+
+  const handleVoiceRecordingComplete = async (audioUri: string) => {
+    try {
+      await voiceFlow.processVoiceInput(audioUri);
+      await fetchDrafts();
+      setSnackbar({ visible: true, message: '语音识别成功，请确认任务', actionText: '', undoType: '' });
+    } catch (error) {
+      console.error('Voice processing error:', error);
+      Alert.alert('语音识别失败', '无法识别语音内容，请重试');
     }
   };
 
@@ -274,7 +288,10 @@ export default function TaskListScreen() {
       />
 
       <View style={styles.bottomButtons}>
-        <VoiceButton disabled={false} />
+        <VoiceButton 
+          disabled={!voiceFlow.isAvailable()} 
+          onRecordingComplete={handleVoiceRecordingComplete}
+        />
         <TouchableOpacity
           style={styles.addButton}
           onPress={handleNewTask}

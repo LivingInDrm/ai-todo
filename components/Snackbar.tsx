@@ -25,7 +25,7 @@ const Snackbar: React.FC<SnackbarProps> = ({
   onDismiss,
 }) => {
   const translateY = useRef(new Animated.Value(100)).current;
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
     if (visible) {

@@ -23,6 +23,8 @@ interface TaskStore {
   getFocusTasks: () => TaskData[];
   getBacklogTasks: () => TaskData[];
   getDoneTasks: () => TaskData[];
+  getTaskById: (id: string) => Promise<TaskData | null>;
+  findTaskByTitle: (title: string) => Promise<TaskData | null>;
 }
 
 const useTaskStore = create<TaskStore>((set, get) => ({
@@ -198,6 +200,61 @@ const useTaskStore = create<TaskStore>((set, get) => ({
       )
       .sort((a, b) => (b.completedTs || 0) - (a.completedTs || 0));
   },
+
+  getTaskById: async (id: string) => {
+    try {
+      const task = await database.collections.get<Task>('tasks').find(id);
+      if (task && !task.pending) {
+        return {
+          id: task.id,
+          title: task.title,
+          dueTs: task.dueTs,
+          urgent: task.urgent,
+          status: task.status,
+          pending: task.pending,
+          completedTs: task.completedTs,
+          createdTs: task.createdTs,
+          updatedTs: task.updatedTs,
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get task by ID:', error);
+      return null;
+    }
+  },
+
+  findTaskByTitle: async (title: string) => {
+    try {
+      const tasks = await database.collections
+        .get<Task>('tasks')
+        .query(
+          Q.where('pending', false),
+          Q.where('title', Q.like(`%${title}%`))
+        )
+        .fetch();
+      
+      if (tasks.length > 0) {
+        const task = tasks[0];
+        return {
+          id: task.id,
+          title: task.title,
+          dueTs: task.dueTs,
+          urgent: task.urgent,
+          status: task.status,
+          pending: task.pending,
+          completedTs: task.completedTs,
+          createdTs: task.createdTs,
+          updatedTs: task.updatedTs,
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to find task by title:', error);
+      return null;
+    }
+  },
 }));
 
 export default useTaskStore;
+export { useTaskStore as taskStore };

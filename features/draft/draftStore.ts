@@ -8,23 +8,29 @@ interface DraftStore {
   drafts: DraftTask[];
   isExpanded: boolean;
   loading: boolean;
+  lastConfirmedIds: string[];
   
   // Actions
   fetchDrafts: () => Promise<void>;
   addDrafts: (operations: VoiceOperation[]) => Promise<void>;
+  addDraftTasks: (drafts: any[]) => Promise<void>;
   toggleDraftSelection: (id: string) => void;
   toggleAllSelection: () => void;
   confirmSelectedDrafts: () => Promise<{ added: number; completed: number }>;
+  confirmDrafts: (selectedIds: string[]) => Promise<void>;
+  rejectDrafts: (rejectedIds: string[]) => Promise<void>;
   confirmSingleDraft: (id: string) => Promise<void>;
   clearUnselectedDrafts: () => Promise<void>;
   toggleExpanded: () => void;
   undoLastOperation: (taskIds: string[]) => Promise<void>;
+  undoLastConfirmation: () => Promise<void>;
 }
 
 const useDraftStore = create<DraftStore>((set, get) => ({
   drafts: [],
   isExpanded: true,
   loading: false,
+  lastConfirmedIds: [],
 
   fetchDrafts: async () => {
     set({ loading: true });
@@ -96,6 +102,120 @@ const useDraftStore = create<DraftStore>((set, get) => ({
     } catch (error) {
       console.error('Failed to add drafts:', error);
       set({ loading: false });
+    }
+  },
+
+  addDraftTasks: async (drafts: any[]) => {
+    set({ loading: true });
+    
+    try {
+      const newDrafts: DraftTask[] = [];
+      
+      await database.write(async () => {
+        for (const draft of drafts.slice(0, 10)) { // Max 10 drafts
+          const task = await database.collections.get<Task>('tasks').create(t => {
+            t.title = draft.title;
+            t.dueTs = draft.due_ts || draft.dueTs;
+            t.urgent = draft.urgent || false;
+            t.status = draft.status || TaskStatus.Active;
+            t.pending = true;
+            t.createdTs = Date.now();
+            t.updatedTs = Date.now();
+          });
+          
+          newDrafts.push({
+            id: task.id,
+            title: task.title,
+            dueTs: task.dueTs,
+            urgent: task.urgent,
+            status: task.status,
+            pending: task.pending,
+            completedTs: task.completedTs,
+            createdTs: task.createdTs,
+            updatedTs: task.updatedTs,
+            operation: draft.action || 'add',
+            selected: true,
+          });
+        }
+      });
+      
+      const currentDrafts = get().drafts;
+      set({ drafts: [...newDrafts, ...currentDrafts], loading: false, isExpanded: true });
+    } catch (error) {
+      console.error('Failed to add draft tasks:', error);
+      set({ loading: false });
+    }
+  },
+
+  confirmDrafts: async (selectedIds: string[]) => {
+    const { drafts } = get();
+    const selectedDrafts = drafts.filter(d => selectedIds.includes(d.id));
+    const confirmedIds: string[] = [];
+    
+    try {
+      await database.write(async () => {
+        for (const draft of selectedDrafts) {
+          const task = await database.collections.get<Task>('tasks').find(draft.id);
+          await task.confirmDraft();
+          confirmedIds.push(draft.id);
+          
+          if (draft.operation === 'complete') {
+            await task.markAsCompleted();
+          }
+        }
+      });
+      
+      const remainingDrafts = drafts.filter(d => !selectedIds.includes(d.id));
+      set({ drafts: remainingDrafts, lastConfirmedIds: confirmedIds });
+      await useTaskStore.getState().fetchTasks();
+    } catch (error) {
+      console.error('Failed to confirm drafts:', error);
+      throw error;
+    }
+  },
+
+  rejectDrafts: async (rejectedIds: string[]) => {
+    try {
+      await database.write(async () => {
+        for (const id of rejectedIds) {
+          const task = await database.collections.get<Task>('tasks').find(id);
+          await task.markAsDeleted();
+        }
+      });
+      
+      const drafts = get().drafts.filter(d => !rejectedIds.includes(d.id));
+      set({ drafts });
+    } catch (error) {
+      console.error('Failed to reject drafts:', error);
+      throw error;
+    }
+  },
+
+  undoLastConfirmation: async () => {
+    const { lastConfirmedIds } = get();
+    
+    if (lastConfirmedIds.length === 0) {
+      console.warn('No confirmation to undo');
+      return;
+    }
+    
+    try {
+      await database.write(async () => {
+        for (const id of lastConfirmedIds) {
+          try {
+            const task = await database.collections.get<Task>('tasks').find(id);
+            await task.markAsDeleted();
+          } catch {
+            // Task might not exist, ignore
+          }
+        }
+      });
+      
+      set({ lastConfirmedIds: [] });
+      await useTaskStore.getState().fetchTasks();
+    } catch (error) {
+      console.error('Failed to undo last confirmation:', error);
+      throw error;
     }
   },
 
@@ -213,3 +333,4 @@ const useDraftStore = create<DraftStore>((set, get) => ({
 }));
 
 export default useDraftStore;
+export { useDraftStore as draftStore };

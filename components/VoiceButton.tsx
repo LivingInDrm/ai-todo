@@ -1,11 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   TouchableOpacity,
   Text,
   StyleSheet,
   Animated,
   View,
+  Alert,
 } from 'react-native';
+import recorder from '../features/voice/recorder';
 
 interface VoiceButtonProps {
   onRecordingComplete?: (audioUri: string) => void;
@@ -18,23 +20,49 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const recordingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
-  const handlePressIn = () => {
+  useEffect(() => {
+    return () => {
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+      }
+      if (recorder.getIsRecording()) {
+        recorder.cancelRecording();
+      }
+    };
+  }, []);
+
+  const handlePressIn = async () => {
     if (disabled) return;
     
-    setIsRecording(true);
-    Animated.spring(scaleAnim, {
-      toValue: 1.2,
-      tension: 50,
-      friction: 3,
-      useNativeDriver: true,
-    }).start();
-    
-    // TODO: Start recording with expo-av
+    try {
+      await recorder.startRecording();
+      setIsRecording(true);
+      
+      Animated.spring(scaleAnim, {
+        toValue: 1.2,
+        tension: 50,
+        friction: 3,
+        useNativeDriver: true,
+      }).start();
+      
+      // Set max recording duration to 60 seconds
+      recordingTimeoutRef.current = setTimeout(async () => {
+        await handlePressOut();
+      }, 60000);
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      Alert.alert('录音失败', '无法启动录音，请检查麦克风权限');
+    }
   };
 
-  const handlePressOut = () => {
+  const handlePressOut = async () => {
     if (!isRecording) return;
+    
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+    }
     
     setIsRecording(false);
     Animated.spring(scaleAnim, {
@@ -44,7 +72,15 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
       useNativeDriver: true,
     }).start();
     
-    // TODO: Stop recording and process audio
+    try {
+      const audioUri = await recorder.stopRecording();
+      if (audioUri && onRecordingComplete) {
+        onRecordingComplete(audioUri);
+      }
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+      Alert.alert('录音失败', '无法保存录音');
+    }
   };
 
   return (

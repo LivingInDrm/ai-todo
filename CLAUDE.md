@@ -152,5 +152,9 @@ Required in `.env` (see `.env.example`):
 
 ## Testing Approach
 
-Currently no tests implemented. 
-When adding tests, follow the design in `test_design.md` and test development roadmap in `test_plan.md`.
+Currently no tests implemented. When adding tests:
+- Use Jest + React Native Testing Library
+- Focus on store logic and critical user flows
+- Mock WatermelonDB and external APIs
+- Test gesture interactions with `react-native-gesture-handler/testing-library`
+- Reference test cases in `testcase.md` for comprehensive coverage 
