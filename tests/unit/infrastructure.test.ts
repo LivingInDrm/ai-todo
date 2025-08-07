@@ -23,15 +23,14 @@ describe('Test Infrastructure Verification', () => {
       expect(database.collections.get('tasks')).toBeDefined();
     });
 
-    it('should have mock adapter methods', () => {
+    it('should have mock database methods', () => {
       const database = createTestDatabase();
-      const adapter = (database as any).adapter;
       
-      expect(adapter).toBeDefined();
-      expect(typeof adapter.query).toBe('function');
-      expect(typeof adapter.batch).toBe('function');
-      // Check that adapter has necessary properties
-      expect(adapter.schema).toBeDefined();
+      expect(database).toBeDefined();
+      expect(typeof database.write).toBe('function');
+      expect(database.collections).toBeDefined();
+      expect(typeof database.collections.get).toBe('function');
+      expect(typeof database.unsafeResetDatabase).toBe('function');
     });
 
     it('should create mock tasks', async () => {

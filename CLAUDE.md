@@ -153,12 +153,13 @@ Required in `.env` (see `.env.example`):
 ## Testing Commands
 
 ```bash
-# Run tests
+# Run tests (ALWAYS use NODE_ENV=test prefix)
 NODE_ENV=test npm test                    # Run all tests
 NODE_ENV=test npm run test:watch         # Watch mode
 NODE_ENV=test npm run test:coverage      # Coverage report
 
 # Run specific tests
+NODE_ENV=test npm test tests/unit/       # Run all unit tests
 NODE_ENV=test npm test path/to/test.ts   # Single test file
 NODE_ENV=test npm test -- --testNamePattern="should create task"  # By test name
 
@@ -174,6 +175,7 @@ NODE_ENV=test npm run test:related path/to/file.ts  # Find related tests
 - **Always run tests with `NODE_ENV=test`** to bypass native dependencies
 - Jest configuration in `jest.config.js` uses `jest-expo` preset
 - Babel automatically skips reanimated plugin in test environment
+- Test timeout: 10 seconds per test
 
 ### Mock Locations
 - **API Mocks**: `setup/mock/handlers.ts` - MSW handlers for OpenAI, Supabase
@@ -187,3 +189,9 @@ NODE_ENV=test npm run test:related path/to/file.ts  # Find related tests
 - Place integration tests in `tests/integration/`
 - Import test utilities: `import { createTestDatabase } from '../../setup/mock/watermelondb'`
 - Use MSW for API testing: `import { server, errorHandlers } from '../../setup/mock/handlers'`
+
+### Current Test Status
+- **Pass Rate**: 94.4% (51/54 tests passing)
+- **Known Issues**: 
+  - notifications.test.ts: Missing `getPermissionsAsync` mock
+  - cloud-sync.test.ts: Offline queue flush returning 0
