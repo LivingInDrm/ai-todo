@@ -76,7 +76,7 @@ Implemented via `react-native-gesture-handler` Swipeable component:
 - **Right Swipe (~30%)**: Triggers `toggleTaskStatus()` → Updates status field
 - **Left Swipe**: Opens `MoreActionSheet` → Postpone/Pin/Delete options
 
-### Voice Input Flow (Phase 6 - Not Yet Implemented)
+### Voice Input Flow (Phase 6 - Completed)
 
 ```
 1. Long press VoiceButton → expo-av records audio
@@ -129,15 +129,15 @@ Required in `.env` (see `.env.example`):
 
 ## Current Development Status
 
-**Completed Phases (1-5)**: ✅
+**Completed Phases (1-6)**: ✅
 - Project setup with Expo + TypeScript
 - WatermelonDB integration
 - All UI components
 - Core task management (CRUD, views, gestures)
 - Task detail sheet with date picker
+- Voice input with Whisper + GPT-4o
 
-**Remaining Phases (6-10)**:
-- Phase 6: Voice input with Whisper + GPT-4o
+**Remaining Phases (7-10)**:
 - Phase 7: Supabase auth & realtime sync
 - Phase 8: Local notifications
 - Phase 9: Settings screen
@@ -150,11 +150,40 @@ Required in `.env` (see `.env.example`):
 3. **Bottom Sheet Behind Content**: Check z-index and portal configuration
 4. **Expo Version Conflicts**: Run `npx expo install --fix` to align package versions
 
-## Testing Approach
+## Testing Commands
 
-Currently no tests implemented. When adding tests:
-- Use Jest + React Native Testing Library
-- Focus on store logic and critical user flows
-- Mock WatermelonDB and external APIs
-- Test gesture interactions with `react-native-gesture-handler/testing-library`
-- Reference test cases in `testcase.md` for comprehensive coverage 
+```bash
+# Run tests
+NODE_ENV=test npm test                    # Run all tests
+NODE_ENV=test npm run test:watch         # Watch mode
+NODE_ENV=test npm run test:coverage      # Coverage report
+
+# Run specific tests
+NODE_ENV=test npm test path/to/test.ts   # Single test file
+NODE_ENV=test npm test -- --testNamePattern="should create task"  # By test name
+
+# Debug tests
+NODE_ENV=test npm run test:debug         # Debug mode with open handles detection
+NODE_ENV=test npm run test:changed       # Test only changed files
+NODE_ENV=test npm run test:related path/to/file.ts  # Find related tests
+```
+
+## Testing Infrastructure
+
+### Test Environment Setup
+- **Always run tests with `NODE_ENV=test`** to bypass native dependencies
+- Jest configuration in `jest.config.js` uses `jest-expo` preset
+- Babel automatically skips reanimated plugin in test environment
+
+### Mock Locations
+- **API Mocks**: `setup/mock/handlers.ts` - MSW handlers for OpenAI, Supabase
+- **Database Mock**: `setup/mock/watermelondb.ts` - Simplified in-memory adapter
+- **Native Mocks**: `setup/jest.setup.ts` - All React Native module mocks
+- **Global Utils**: Available via `global.createMockTask()`
+
+### Writing Tests
+- Place unit tests in `tests/unit/`
+- Place component tests in `tests/components/`
+- Place integration tests in `tests/integration/`
+- Import test utilities: `import { createTestDatabase } from '../../setup/mock/watermelondb'`
+- Use MSW for API testing: `import { server, errorHandlers } from '../../setup/mock/handlers'`
