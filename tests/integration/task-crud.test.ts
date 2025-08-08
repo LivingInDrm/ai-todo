@@ -260,11 +260,12 @@ describe('Task CRUD Operations', () => {
     it('should pin task to top of Focus view', async () => {
       const { result } = renderHook(() => useTaskStore());
 
-      // Create multiple tasks (they'll be in Backlog since no due dates)
+      // Create multiple tasks with due dates so they appear in Focus view
+      const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
       await act(async () => {
-        await result.current.createTask('Task 1');
-        await result.current.createTask('Task 2');
-        await result.current.createTask('Task 3');
+        await result.current.createTask('Task 1', tomorrow);
+        await result.current.createTask('Task 2', tomorrow);
+        await result.current.createTask('Task 3', tomorrow);
       });
 
       const taskToPin = result.current.tasks[1]; // Pin Task 2
@@ -279,9 +280,28 @@ describe('Task CRUD Operations', () => {
       expect(pinnedTask?.pinnedAt).toBeDefined();
       expect(pinnedTask?.pinnedAt).toBeGreaterThan(0);
 
-      // Check in Backlog view (since tasks have no due dates)
+      // Check in Focus view - pinned task should be first
+      const focusTasks = result.current.getFocusTasks();
+      expect(focusTasks[0].id).toBe(taskToPin.id);
+
+      // Verify Backlog view is NOT affected by pinning
+      // (Tasks without due dates would be in backlog and sorted by createdTs)
+      await act(async () => {
+        await result.current.createTask('Backlog Task 1');
+        // Small delay to ensure different timestamps
+        await new Promise(resolve => setTimeout(resolve, 10));
+        await result.current.createTask('Backlog Task 2');
+      });
+      
       const backlogTasks = result.current.getBacklogTasks();
-      expect(backlogTasks[0].id).toBe(taskToPin.id);
+      // Backlog should be sorted by creation time (newest first), not by pin status
+      const backlogTaskTitles = backlogTasks.map(t => t.title);
+      expect(backlogTaskTitles).toContain('Backlog Task 1');
+      expect(backlogTaskTitles).toContain('Backlog Task 2');
+      // The newest task (Backlog Task 2) should come first
+      const task2Index = backlogTaskTitles.indexOf('Backlog Task 2');
+      const task1Index = backlogTaskTitles.indexOf('Backlog Task 1');
+      expect(task2Index).toBeLessThan(task1Index);
 
       // Pin again should toggle it off
       await act(async () => {

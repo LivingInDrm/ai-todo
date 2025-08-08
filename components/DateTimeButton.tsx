@@ -50,8 +50,8 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
     }
     
     if (selectedDate) {
-      // If only date mode and time is 00:00, set default to 09:00
-      if (mode === 'date' && 
+      // If date mode OR datetime mode with default midnight time, set to 09:00
+      if ((mode === 'date' || mode === 'datetime') && 
           selectedDate.getHours() === 0 && 
           selectedDate.getMinutes() === 0) {
         selectedDate.setHours(9, 0, 0, 0);
@@ -65,9 +65,9 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
   };
 
   const handleDone = () => {
-    // If only date mode and time is 00:00, set default to 09:00
+    // If date mode OR datetime mode with default midnight time, set to 09:00
     const finalDate = new Date(tempDate);
-    if (mode === 'date' && 
+    if ((mode === 'date' || mode === 'datetime') && 
         finalDate.getHours() === 0 && 
         finalDate.getMinutes() === 0) {
       finalDate.setHours(9, 0, 0, 0);

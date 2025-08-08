@@ -203,11 +203,7 @@ const useTaskStore = create<TaskStore>((set, get) => ({
         (!task.dueTs || task.dueTs > weekFromNow)
       )
       .sort((a, b) => {
-        // Pinned items first, sorted by pin time (newest pins first)
-        if (a.pinnedAt && b.pinnedAt) return b.pinnedAt - a.pinnedAt;
-        if (a.pinnedAt) return -1;
-        if (b.pinnedAt) return 1;
-        // Then by creation time (newest first)
+        // Only sort by creation time (newest first), no pinned priority in Backlog
         return b.createdTs - a.createdTs;
       });
   },

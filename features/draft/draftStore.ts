@@ -1,14 +1,21 @@
 import { create } from 'zustand';
 import { Q } from '@nozbe/watermelondb';
 import database, { Task } from '../../db/database';
-import { DraftTask, TaskStatus, VoiceOperation } from '../../lib/types';
+import { DraftTask, TaskData, TaskStatus, VoiceOperation } from '../../lib/types';
 import useTaskStore from '../task/taskStore';
+
+interface UndoOperation {
+  type: 'add' | 'update' | 'complete' | 'delete';
+  taskId: string;
+  previousState?: Partial<TaskData>; // For update/complete operations
+}
 
 interface DraftStore {
   drafts: DraftTask[];
   isExpanded: boolean;
   loading: boolean;
   lastConfirmedIds: string[];
+  lastUndoOperations: UndoOperation[];
   
   // Actions
   fetchDrafts: () => Promise<void>;
@@ -31,6 +38,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
   isExpanded: true,
   loading: false,
   lastConfirmedIds: [],
+  lastUndoOperations: [],
 
   fetchDrafts: async () => {
     set({ loading: true });
@@ -181,6 +189,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
     const { drafts } = get();
     const selectedDrafts = drafts.filter(d => selectedIds.includes(d.id));
     const confirmedIds: string[] = [];
+    const undoOperations: UndoOperation[] = [];
     
     try {
       await database.write(async () => {
@@ -188,6 +197,9 @@ const useDraftStore = create<DraftStore>((set, get) => ({
           const task = await database.collections.get<Task>('tasks').find(draft.id);
           await task.confirmDraft();
           confirmedIds.push(draft.id);
+          
+          // Track undo operation for add
+          undoOperations.push({ type: 'add', taskId: draft.id });
           
           if (draft.operation === 'complete') {
             await task.markAsCompleted();
@@ -199,7 +211,11 @@ const useDraftStore = create<DraftStore>((set, get) => ({
       });
       
       const remainingDrafts = drafts.filter(d => !selectedIds.includes(d.id));
-      set({ drafts: remainingDrafts, lastConfirmedIds: confirmedIds });
+      set({ 
+        drafts: remainingDrafts, 
+        lastConfirmedIds: confirmedIds,
+        lastUndoOperations: undoOperations
+      });
       await useTaskStore.getState().fetchTasks();
     } catch (error) {
       console.error('Failed to confirm drafts:', error);
@@ -225,26 +241,74 @@ const useDraftStore = create<DraftStore>((set, get) => ({
   },
 
   undoLastConfirmation: async () => {
-    const { lastConfirmedIds } = get();
+    const { lastUndoOperations } = get();
     
-    if (lastConfirmedIds.length === 0) {
+    if (lastUndoOperations.length === 0) {
       console.warn('No confirmation to undo');
       return;
     }
     
     try {
       await database.write(async () => {
-        for (const id of lastConfirmedIds) {
+        for (const op of lastUndoOperations) {
           try {
-            const task = await database.collections.get<Task>('tasks').find(id);
-            await task.markAsDeleted();
-          } catch {
-            // Task might not exist, ignore
+            switch (op.type) {
+              case 'add':
+                // Delete the newly added task
+                const addedTask = await database.collections.get<Task>('tasks').find(op.taskId);
+                await addedTask.markAsDeleted();
+                break;
+                
+              case 'update':
+                // Restore previous values
+                if (op.previousState) {
+                  const updatedTask = await database.collections.get<Task>('tasks').find(op.taskId);
+                  await updatedTask.update(t => {
+                    if (op.previousState!.title !== undefined) t.title = op.previousState!.title;
+                    if (op.previousState!.dueTs !== undefined) t.dueTs = op.previousState!.dueTs;
+                    if (op.previousState!.urgent !== undefined) t.urgent = op.previousState!.urgent;
+                    t.updatedTs = Date.now();
+                  });
+                }
+                break;
+                
+              case 'complete':
+                // Restore to active state
+                if (op.previousState) {
+                  const completedTask = await database.collections.get<Task>('tasks').find(op.taskId);
+                  await completedTask.update(t => {
+                    t.status = TaskStatus.Active;
+                    t.completedTs = undefined;
+                    t.updatedTs = Date.now();
+                  });
+                }
+                break;
+                
+              case 'delete':
+                // Recreate the deleted task
+                if (op.previousState) {
+                  await database.collections.get<Task>('tasks').create(t => {
+                    // Recreate with new ID but preserve original data
+                    t.title = op.previousState!.title!;
+                    t.dueTs = op.previousState!.dueTs;
+                    t.urgent = op.previousState!.urgent || false;
+                    t.status = op.previousState!.status || TaskStatus.Active;
+                    t.pending = false;
+                    t.completedTs = op.previousState!.completedTs;
+                    t.pinnedAt = op.previousState!.pinnedAt;
+                    t.createdTs = op.previousState!.createdTs || Date.now();
+                    t.updatedTs = Date.now();
+                  });
+                }
+                break;
+            }
+          } catch (error) {
+            console.error(`Failed to undo operation for task ${op.taskId}:`, error);
           }
         }
       });
       
-      set({ lastConfirmedIds: [] });
+      set({ lastConfirmedIds: [], lastUndoOperations: [] });
       await useTaskStore.getState().fetchTasks();
     } catch (error) {
       console.error('Failed to undo last confirmation:', error);
@@ -273,7 +337,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
     const selectedDrafts = drafts.filter(d => d.selected);
     const unselectedIds = drafts.filter(d => !d.selected).map(d => d.id);
     const confirmedIds: string[] = [];
-    const affectedTaskIds: string[] = [];
+    const undoOperations: UndoOperation[] = [];
     
     let added = 0;
     let completed = 0;
@@ -289,6 +353,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
             const task = await database.collections.get<Task>('tasks').find(draft.id);
             await task.confirmDraft();
             confirmedIds.push(draft.id);
+            undoOperations.push({ type: 'add', taskId: draft.id });
             added++;
           } else if (draft.targetTaskId) {
             // For update/complete/delete, operate on the target task
@@ -296,6 +361,13 @@ const useDraftStore = create<DraftStore>((set, get) => ({
             
             switch (draft.operation) {
               case 'update':
+                // Store previous state for undo
+                const prevUpdateState = {
+                  title: targetTask.title,
+                  dueTs: targetTask.dueTs,
+                  urgent: targetTask.urgent,
+                };
+                
                 await targetTask.update(t => {
                   t.title = draft.title;
                   t.dueTs = draft.dueTs;
@@ -303,19 +375,50 @@ const useDraftStore = create<DraftStore>((set, get) => ({
                   t.updatedTs = Date.now();
                 });
                 updated++;
-                affectedTaskIds.push(draft.targetTaskId);
+                undoOperations.push({ 
+                  type: 'update', 
+                  taskId: draft.targetTaskId,
+                  previousState: prevUpdateState
+                });
                 break;
                 
               case 'complete':
+                // Store previous state for undo
+                const prevCompleteState = {
+                  status: targetTask.status,
+                  completedTs: targetTask.completedTs,
+                };
+                
                 await targetTask.markAsCompleted();
                 completed++;
-                affectedTaskIds.push(draft.targetTaskId);
+                undoOperations.push({ 
+                  type: 'complete', 
+                  taskId: draft.targetTaskId,
+                  previousState: prevCompleteState
+                });
                 break;
                 
               case 'delete':
+                // Store full task state for potential restore
+                const prevDeleteState = {
+                  title: targetTask.title,
+                  dueTs: targetTask.dueTs,
+                  urgent: targetTask.urgent,
+                  status: targetTask.status,
+                  pending: targetTask.pending,
+                  completedTs: targetTask.completedTs,
+                  pinnedAt: targetTask.pinnedAt,
+                  createdTs: targetTask.createdTs,
+                  updatedTs: targetTask.updatedTs,
+                };
+                
                 await targetTask.markAsDeleted();
                 deleted++;
-                affectedTaskIds.push(draft.targetTaskId);
+                undoOperations.push({ 
+                  type: 'delete', 
+                  taskId: draft.targetTaskId,
+                  previousState: prevDeleteState
+                });
                 break;
             }
             
@@ -332,8 +435,12 @@ const useDraftStore = create<DraftStore>((set, get) => ({
         }
       });
       
-      // Store both new task IDs and affected task IDs for undo
-      set({ drafts: [], lastConfirmedIds: [...confirmedIds, ...affectedTaskIds] });
+      // Store undo operations for proper reversal
+      set({ 
+        drafts: [], 
+        lastConfirmedIds: confirmedIds,
+        lastUndoOperations: undoOperations
+      });
       await useTaskStore.getState().fetchTasks();
       
       return { added, completed };

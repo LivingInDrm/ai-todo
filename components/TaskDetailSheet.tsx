@@ -33,6 +33,7 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
     const [isUrgent, setIsUrgent] = useState(false);
     const [currentTask, setCurrentTask] = useState<TaskData | undefined>();
     const saveTimeoutRef = useRef<NodeJS.Timeout>();
+    const isDeleting = useRef(false);
 
     // Create debounced auto-save function (400ms delay)
     const debouncedAutoSave = useCallback(
@@ -105,7 +106,12 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
     const handleClose = () => {
       // Cancel pending auto-save and force immediate save
       debouncedAutoSave.cancel();
-      handleSave();
+      // Skip save if we're deleting the task
+      if (!isDeleting.current) {
+        handleSave();
+      }
+      // Reset the deleting flag
+      isDeleting.current = false;
     };
 
     const toggleUrgent = () => {
@@ -182,6 +188,7 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
             <TouchableOpacity
               style={styles.deleteButton}
               onPress={() => {
+                isDeleting.current = true;
                 onDelete(currentTask.id);
                 bottomSheetRef.current?.dismiss();
               }}

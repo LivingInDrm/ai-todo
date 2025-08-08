@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { TaskData } from '../lib/types';
@@ -29,6 +30,8 @@ const TaskCell: React.FC<TaskCellProps> = ({
   onMorePress,
 }) => {
   const isCompleted = task.status === 1;
+  const screenWidth = Dimensions.get('window').width;
+  const swipeThreshold = screenWidth * 0.3; // 30% of screen width
   
   const formatTime = (timestamp?: number) => {
     if (!timestamp) return '';
@@ -85,8 +88,8 @@ const TaskCell: React.FC<TaskCellProps> = ({
       overshootLeft={false}
       overshootRight={false}
       friction={2}
-      leftThreshold={30}  // Trigger at 30% of swipe distance
-      rightThreshold={30} // Trigger at 30% of swipe distance
+      leftThreshold={swipeThreshold}  // Trigger at 30% of screen width
+      rightThreshold={swipeThreshold} // Trigger at 30% of screen width
     >
       <TouchableOpacity
         style={styles.container}
