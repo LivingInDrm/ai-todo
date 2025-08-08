@@ -14,7 +14,7 @@
 | 语音输入   | Whisper → LLM 解析批量操作，插入「待确认区」      | ✅      |
 | 本地提醒   | `due_ts – 30 min` 推送（仅含日期默认 09:00） |   ✅    |
 | 云同步    | Supabase Realtime；最后写入覆盖           | ✅      |
-| 设置     | 注册登录/语言选择                  | ✅  |
+| 设置     | 注册登录/语言切换                  | ✅  |
 
 ---
 
@@ -125,6 +125,7 @@ CREATE TABLE tasks (
   urgent       INTEGER DEFAULT 0,
   status       INTEGER DEFAULT 0,-- 0 active | 1 completed
   pending      INTEGER DEFAULT 0,-- 0 正式 | 1 草稿
+  pinned_at    INTEGER DEFAULT 0,
   completed_ts INTEGER,
   created_ts   INTEGER,
   updated_ts   INTEGER

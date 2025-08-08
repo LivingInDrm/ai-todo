@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { router } from 'expo-router';
 import useTaskStore from '../features/task/taskStore';
 import useDraftStore from '../features/draft/draftStore';
 import { TaskData, TaskView } from '../lib/types';
@@ -23,6 +24,8 @@ import TaskDetailSheet, { TaskDetailSheetRef } from '../components/TaskDetailShe
 import MoreActionSheet, { MoreActionSheetRef } from '../components/MoreActionSheet';
 import voiceFlow from '../features/voice/voiceFlow';
 import NetInfo from '@react-native-community/netinfo';
+import { taskSyncService } from '../features/task/taskSync';
+import { useAuthStore } from '../features/auth/authStore';
 
 export default function TaskListScreen() {
   const {
@@ -53,6 +56,8 @@ export default function TaskListScreen() {
     fetchDrafts,
     undoLastConfirmation,
   } = useDraftStore();
+  
+  const { user } = useAuthStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '', actionText: '', undoType: '' });
@@ -75,8 +80,17 @@ export default function TaskListScreen() {
       voiceFlow.isAvailable().then(setVoiceAvailable);
     });
     
-    return () => unsubscribe();
-  }, []);
+    // Initialize real-time sync if user is authenticated
+    if (user) {
+      taskSyncService.initializeRealtimeSync();
+    }
+    
+    return () => {
+      unsubscribe();
+      // Clean up real-time sync on unmount
+      taskSyncService.cleanup();
+    };
+  }, [user]);
 
   const getCurrentTasks = () => {
     switch (currentView) {
@@ -93,6 +107,12 @@ export default function TaskListScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    
+    // Trigger sync with Supabase if user is authenticated
+    if (user) {
+      await taskSyncService.processOfflineQueue();
+    }
+    
     await fetchTasks();
     await fetchDrafts();
     setRefreshing(false);
@@ -123,7 +143,7 @@ export default function TaskListScreen() {
     if (taskData.id) {
       await updateTask(taskData.id, taskData);
     } else {
-      await createTask(taskData.title!, taskData.dueTs, taskData.urgent);
+      await createTask(taskData);
     }
   };
 
@@ -284,13 +304,23 @@ export default function TaskListScreen() {
       <StatusBar style="dark" />
       
       <View style={styles.header}>
-        <TaskTabs
-          currentView={currentView}
-          onViewChange={setCurrentView}
-          focusCount={getFocusTasks().length}
-          backlogCount={getBacklogTasks().length}
-          doneCount={getDoneTasks().length}
-        />
+        <View style={styles.headerTop}>
+          <View style={styles.headerPlaceholder} />
+          <TaskTabs
+            currentView={currentView}
+            onViewChange={setCurrentView}
+            focusCount={getFocusTasks().length}
+            backlogCount={getBacklogTasks().length}
+            doneCount={getDoneTasks().length}
+          />
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => router.push('/settings')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.settingsIcon}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -364,6 +394,24 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingVertical: 8,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  headerPlaceholder: {
+    width: 40,
+  },
+  settingsButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsIcon: {
+    fontSize: 24,
   },
   listContent: {
     paddingBottom: 100,
@@ -468,8 +516,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-  },
-  addIcon: {
-    fontSize: 24,
   },
 });
