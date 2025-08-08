@@ -148,7 +148,7 @@ describe('Test Infrastructure Verification', () => {
 
   describe('Global Test Utilities', () => {
     it('should have createMockTask global utility', () => {
-      const task = global.createMockTask({ title: 'Custom Title' });
+      const task = (global as any).createMockTask({ title: 'Custom Title' });
       
       expect(task.id).toBe('mock-task-id');
       expect(task.title).toBe('Custom Title');

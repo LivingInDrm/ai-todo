@@ -25,6 +25,11 @@ jest.mock('@nozbe/watermelondb/adapters/sqlite', () => {
   };
 });
 
+// Mock AsyncStorage
+jest.mock('@react-native-async-storage/async-storage', () => 
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);
+
 // Mock React Native Reanimated
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
@@ -202,6 +207,16 @@ jest.mock('../db/database', () => {
   // Mock Task model class
   class MockTask {
     static table = 'tasks';
+    id!: string;
+    title!: string;
+    dueTs?: number;
+    urgent!: boolean;
+    status!: number;
+    pending!: boolean;
+    completedTs?: number;
+    pinnedAt?: number;
+    createdTs!: number;
+    updatedTs!: number;
     
     constructor(database: any, raw: any) {
       Object.assign(this, raw);
@@ -257,7 +272,7 @@ afterEach(async () => {
 afterAll(() => server.close());
 
 // Global test utilities
-global.createMockTask = (overrides = {}) => ({
+(global as any).createMockTask = (overrides = {}) => ({
   id: 'mock-task-id',
   title: 'Mock Task',
   due_ts: null,

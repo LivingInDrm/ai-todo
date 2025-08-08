@@ -26,6 +26,7 @@ import voiceFlow from '../features/voice/voiceFlow';
 import NetInfo from '@react-native-community/netinfo';
 import { taskSyncService } from '../features/task/taskSync';
 import { useAuthStore } from '../features/auth/authStore';
+import reminderService from '../features/notify/reminderService';
 
 export default function TaskListScreen() {
   const {
@@ -91,6 +92,18 @@ export default function TaskListScreen() {
       taskSyncService.cleanup();
     };
   }, [user]);
+  
+  // Check and update expired reminders when tasks are loaded
+  useEffect(() => {
+    const checkExpiredReminders = async () => {
+      const allTasks = [...getFocusTasks(), ...getBacklogTasks()];
+      await reminderService.checkAndUpdateExpiredReminders(allTasks);
+    };
+    
+    if (tasks.length > 0) {
+      checkExpiredReminders();
+    }
+  }, [tasks]);
 
   const getCurrentTasks = () => {
     switch (currentView) {

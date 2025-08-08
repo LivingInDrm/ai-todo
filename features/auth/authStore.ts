@@ -19,6 +19,8 @@ interface AuthState {
   initialize: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithMagicLink: (email: string) => Promise<void>;
+  verifyOtp: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
   cleanup: () => void;
@@ -151,6 +153,66 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('Sign up error:', error);
       set({ error: 'Failed to sign up' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+  
+  signInWithMagicLink: async (email: string) => {
+    if (!supabase) {
+      set({ error: 'Authentication not available in offline mode' });
+      return;
+    }
+    
+    set({ isLoading: true, error: null });
+    
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+        },
+      });
+      
+      if (error) {
+        set({ error: error.message });
+      } else {
+        set({ error: 'Please check your email for the login link' });
+      }
+    } catch (error) {
+      console.error('Magic link error:', error);
+      set({ error: 'Failed to send magic link' });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+  
+  verifyOtp: async (email: string, token: string) => {
+    if (!supabase) {
+      set({ error: 'Authentication not available in offline mode' });
+      return;
+    }
+    
+    set({ isLoading: true, error: null });
+    
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+      
+      if (error) {
+        set({ error: error.message });
+      } else {
+        set({ 
+          session: data.session,
+          user: data.user,
+        });
+      }
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      set({ error: 'Failed to verify OTP' });
     } finally {
       set({ isLoading: false });
     }

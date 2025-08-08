@@ -52,6 +52,7 @@ export default class Task extends Model {
     await this.update((task) => {
       task.status = 1;
       task.completedTs = Date.now();
+      task.updatedTs = Date.now();
     });
   }
 
@@ -59,42 +60,49 @@ export default class Task extends Model {
     await this.update((task) => {
       task.status = 0;
       task.completedTs = undefined;
+      task.updatedTs = Date.now();
     });
   }
 
   async toggleUrgent() {
     await this.update((task) => {
       task.urgent = !task.urgent;
+      task.updatedTs = Date.now();
     });
   }
 
   async confirmDraft() {
     await this.update((task) => {
       task.pending = false;
+      task.updatedTs = Date.now();
     });
   }
 
   async postpone(newDueTs: number) {
     await this.update((task) => {
       task.dueTs = newDueTs;
+      task.updatedTs = Date.now();
     });
   }
 
   async pin() {
     await this.update((task) => {
       task.pinnedAt = Date.now();
+      task.updatedTs = Date.now();
     });
   }
 
   async unpin() {
     await this.update((task) => {
       task.pinnedAt = undefined;
+      task.updatedTs = Date.now();
     });
   }
 
   async togglePin() {
     await this.update((task) => {
       task.pinnedAt = task.pinnedAt ? undefined : Date.now();
+      task.updatedTs = Date.now();
     });
   }
 }

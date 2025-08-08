@@ -46,7 +46,10 @@ describe('Performance and Animation', () => {
         const promises = [];
         for (let i = 0; i < 200; i++) {
           promises.push(
-            result.current.createTask(`Task ${i + 1}`, Date.now() + (i * 60000))
+            result.current.createTask({
+              title: `Task ${i + 1}`,
+              dueTs: Date.now() + (i * 60000)
+            })
           );
         }
         await Promise.all(promises);
@@ -302,13 +305,19 @@ describe('Performance and Animation', () => {
         // Tasks for different views
         for (let i = 0; i < 30; i++) {
           // Focus tasks (due soon)
-          promises.push(result.current.createTask(`Focus ${i}`, now + i * 60000));
+          promises.push(result.current.createTask({
+            title: `Focus ${i}`,
+            dueTs: now + i * 60000
+          }));
         }
         
         for (let i = 0; i < 30; i++) {
           // Backlog tasks (far future)
           promises.push(
-            result.current.createTask(`Backlog ${i}`, now + (30 + i) * 24 * 60 * 60 * 1000)
+            result.current.createTask({
+              title: `Backlog ${i}`,
+              dueTs: now + (30 + i) * 24 * 60 * 60 * 1000
+            })
           );
         }
         

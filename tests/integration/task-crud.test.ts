@@ -337,11 +337,11 @@ describe('Task CRUD Operations', () => {
       // Simulate undo by recreating the task
       // (In real app, this would be handled by Snackbar component)
       await act(async () => {
-        await result.current.createTask(
-          originalTask.title,
-          originalTask.dueTs,
-          originalTask.urgent
-        );
+        await result.current.createTask({
+          title: originalTask.title,
+          dueTs: originalTask.dueTs,
+          urgent: originalTask.urgent
+        });
       });
 
       // Verify task is restored

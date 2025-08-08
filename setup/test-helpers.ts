@@ -56,7 +56,7 @@ export const resetAllStores = () => {
   } catch (error) {
     // Stores might not be available in all test contexts
     // Only log if not expected error
-    if (!error.message?.includes('Cannot read properties')) {
+    if (error instanceof Error && !error.message?.includes('Cannot read properties')) {
       console.debug('Could not reset stores:', error);
     }
   }
@@ -75,7 +75,7 @@ export const resetTestDatabase = async () => {
   } catch (error) {
     // Database module might not be mocked in some tests
     // Only log if not the expected error
-    if (!error.message?.includes('Cannot read properties of undefined')) {
+    if (error instanceof Error && !error.message?.includes('Cannot read properties of undefined')) {
       console.debug('Could not reset database:', error);
     }
   }

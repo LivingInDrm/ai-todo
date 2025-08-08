@@ -112,7 +112,7 @@ export const handlers = [
   }),
 
   http.post('*/rest/v1/tasks', async ({ request }) => {
-    const body = await request.json();
+    const body = await request.json() as Record<string, any>;
     return HttpResponse.json({
       ...body,
       id: 'new-remote-task-id',
@@ -123,7 +123,7 @@ export const handlers = [
   }),
 
   http.patch('*/rest/v1/tasks', async ({ request }) => {
-    const body = await request.json();
+    const body = await request.json() as Record<string, any>;
     return HttpResponse.json({
       ...body,
       updated_at: new Date().toISOString()
