@@ -16,6 +16,7 @@ interface DraftStore {
   loading: boolean;
   lastConfirmedIds: string[];
   lastUndoOperations: UndoOperation[];
+  lastConfirmationTime: number | null;
   
   // Actions
   fetchDrafts: () => Promise<void>;
@@ -39,6 +40,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
   loading: false,
   lastConfirmedIds: [],
   lastUndoOperations: [],
+  lastConfirmationTime: null,
 
   fetchDrafts: async () => {
     set({ loading: true });
@@ -241,10 +243,16 @@ const useDraftStore = create<DraftStore>((set, get) => ({
   },
 
   undoLastConfirmation: async () => {
-    const { lastUndoOperations } = get();
+    const { lastUndoOperations, lastConfirmationTime } = get();
     
     if (lastUndoOperations.length === 0) {
       console.warn('No confirmation to undo');
+      return;
+    }
+    
+    // Check if undo is within 3 seconds
+    if (lastConfirmationTime && Date.now() - lastConfirmationTime > 3000) {
+      console.warn('Undo time window expired (3 seconds)');
       return;
     }
     
@@ -308,7 +316,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
         }
       });
       
-      set({ lastConfirmedIds: [], lastUndoOperations: [] });
+      set({ lastConfirmedIds: [], lastUndoOperations: [], lastConfirmationTime: null });
       await useTaskStore.getState().fetchTasks();
     } catch (error) {
       console.error('Failed to undo last confirmation:', error);
@@ -439,7 +447,8 @@ const useDraftStore = create<DraftStore>((set, get) => ({
       set({ 
         drafts: [], 
         lastConfirmedIds: confirmedIds,
-        lastUndoOperations: undoOperations
+        lastUndoOperations: undoOperations,
+        lastConfirmationTime: Date.now()
       });
       await useTaskStore.getState().fetchTasks();
       
@@ -451,14 +460,97 @@ const useDraftStore = create<DraftStore>((set, get) => ({
   },
 
   confirmSingleDraft: async (id: string) => {
+    const { drafts } = get();
+    const draft = drafts.find(d => d.id === id);
+    
+    if (!draft) return;
+    
+    const undoOperations: UndoOperation[] = [];
+    
     try {
       await database.write(async () => {
-        const task = await database.collections.get<Task>('tasks').find(id);
-        await task.confirmDraft();
+        if (draft.operation === 'add') {
+          // For add operations, confirm the draft task itself
+          const task = await database.collections.get<Task>('tasks').find(draft.id);
+          await task.confirmDraft();
+          undoOperations.push({ type: 'add', taskId: draft.id });
+        } else if (draft.targetTaskId) {
+          // For update/complete/delete, operate on the target task
+          const targetTask = await database.collections.get<Task>('tasks').find(draft.targetTaskId);
+          
+          switch (draft.operation) {
+            case 'update':
+              // Store previous state for undo
+              const prevUpdateState = {
+                title: targetTask.title,
+                dueTs: targetTask.dueTs,
+                urgent: targetTask.urgent,
+              };
+              
+              await targetTask.update(t => {
+                t.title = draft.title;
+                t.dueTs = draft.dueTs;
+                t.urgent = draft.urgent;
+                t.updatedTs = Date.now();
+              });
+              undoOperations.push({ 
+                type: 'update', 
+                taskId: draft.targetTaskId,
+                previousState: prevUpdateState
+              });
+              break;
+              
+            case 'complete':
+              // Store previous state for undo
+              const prevCompleteState = {
+                status: targetTask.status,
+                completedTs: targetTask.completedTs,
+              };
+              
+              await targetTask.markAsCompleted();
+              undoOperations.push({ 
+                type: 'complete', 
+                taskId: draft.targetTaskId,
+                previousState: prevCompleteState
+              });
+              break;
+              
+            case 'delete':
+              // Store full task state for potential restore
+              const prevDeleteState = {
+                title: targetTask.title,
+                dueTs: targetTask.dueTs,
+                urgent: targetTask.urgent,
+                status: targetTask.status,
+                pending: targetTask.pending,
+                completedTs: targetTask.completedTs,
+                pinnedAt: targetTask.pinnedAt,
+                createdTs: targetTask.createdTs,
+                updatedTs: targetTask.updatedTs,
+              };
+              
+              await targetTask.markAsDeleted();
+              undoOperations.push({ 
+                type: 'delete', 
+                taskId: draft.targetTaskId,
+                previousState: prevDeleteState
+              });
+              break;
+          }
+          
+          // Delete the draft after processing
+          const draftTask = await database.collections.get<Task>('tasks').find(draft.id);
+          await draftTask.markAsDeleted();
+        }
       });
       
-      const drafts = get().drafts.filter(d => d.id !== id);
-      set({ drafts });
+      const remainingDrafts = drafts.filter(d => d.id !== id);
+      set({ 
+        drafts: remainingDrafts,
+        lastConfirmedIds: [id],
+        lastUndoOperations: undoOperations,
+        lastConfirmationTime: Date.now()
+      });
       await useTaskStore.getState().fetchTasks();
     } catch (error) {
       console.error('Failed to confirm single draft:', error);

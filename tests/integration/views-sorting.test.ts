@@ -231,8 +231,9 @@ describe('Three-View System and Sorting', () => {
     it('should handle tasks at exact 7-day boundary', async () => {
       const { result } = renderHook(() => useTaskStore());
 
-      const exactly7Days = Date.now() + (7 * 24 * 60 * 60 * 1000);
-      const moreThan7Days = exactly7Days + 1;
+      const now = Date.now();
+      const exactly7Days = now + (7 * 24 * 60 * 60 * 1000);
+      const moreThan7Days = exactly7Days + (60 * 1000); // Add 1 minute instead of 1ms to avoid timing issues
 
       await act(async () => {
         await result.current.createTask('Exactly 7 Days', exactly7Days);
@@ -242,9 +243,9 @@ describe('Three-View System and Sorting', () => {
       const focusTasks = result.current.getFocusTasks();
       const backlogTasks = result.current.getBacklogTasks();
       
-      // Exactly 7 days should be in Focus
+      // Exactly 7 days should be in Focus (due <= 7 days from now)
       expect(focusTasks.some(t => t.title === 'Exactly 7 Days')).toBe(true);
-      // More than 7 days should be in Backlog
+      // More than 7 days should be in Backlog (due > 7 days from now)
       expect(backlogTasks.some(t => t.title === 'More Than 7 Days')).toBe(true);
     });
 

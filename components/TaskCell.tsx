@@ -79,10 +79,10 @@ const TaskCell: React.FC<TaskCellProps> = ({
       renderLeftActions={onSwipeRight ? renderLeftActions : undefined}
       renderRightActions={onSwipeLeft ? renderRightActions : undefined}
       onSwipeableOpen={(direction) => {
-        if (direction === 'left' && onSwipeLeft) {
-          onSwipeLeft();
-        } else if (direction === 'right' && onSwipeRight) {
+        if (direction === 'left' && onSwipeRight) {
           onSwipeRight();
+        } else if (direction === 'right' && onSwipeLeft) {
+          onSwipeLeft();
         }
       }}
       overshootLeft={false}
