@@ -199,10 +199,10 @@ describe('Voice Input Flow', () => {
   });
 
   describe('TC-Voice-05: Offline mode', () => {
-    it('should disable voice input when offline', () => {
+    it('should disable voice input when offline', async () => {
       // In test environment, API key is always set
       // So we test that isAvailable returns true
-      const isAvailable = voiceFlow.isAvailable();
+      const isAvailable = await voiceFlow.isAvailable();
       expect(isAvailable).toBe(true);
     });
 

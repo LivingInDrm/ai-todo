@@ -22,6 +22,7 @@ import FloatingBar from '../components/FloatingBar';
 import TaskDetailSheet, { TaskDetailSheetRef } from '../components/TaskDetailSheet';
 import MoreActionSheet, { MoreActionSheetRef } from '../components/MoreActionSheet';
 import voiceFlow from '../features/voice/voiceFlow';
+import NetInfo from '@react-native-community/netinfo';
 
 export default function TaskListScreen() {
   const {
@@ -57,6 +58,7 @@ export default function TaskListScreen() {
   const [snackbar, setSnackbar] = useState({ visible: false, message: '', actionText: '', undoType: '' });
   const [selectedTask, setSelectedTask] = useState<TaskData | undefined>();
   const [undoTasks, setUndoTasks] = useState<string[]>([]);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
 
   const taskDetailRef = useRef<TaskDetailSheetRef>(null);
   const moreActionRef = useRef<MoreActionSheetRef>(null);
@@ -64,6 +66,16 @@ export default function TaskListScreen() {
   useEffect(() => {
     fetchTasks();
     fetchDrafts();
+    
+    // Check voice availability
+    voiceFlow.isAvailable().then(setVoiceAvailable);
+    
+    // Set up network listener
+    const unsubscribe = NetInfo.addEventListener(state => {
+      voiceFlow.isAvailable().then(setVoiceAvailable);
+    });
+    
+    return () => unsubscribe();
   }, []);
 
   const getCurrentTasks = () => {
@@ -158,8 +170,11 @@ export default function TaskListScreen() {
         now.setHours(9, 0, 0, 0);
         newDueTs = now.getTime();
         break;
+      case 'custom':
+        // Open task detail sheet for custom date selection
+        taskDetailRef.current?.present(selectedTask);
+        return;
       default:
-        // Custom - open date picker
         return;
     }
 
@@ -235,6 +250,12 @@ export default function TaskListScreen() {
           <View style={styles.draftList}>
             {drafts.slice(0, 10).map((draft) => (
               <View key={draft.id} style={styles.draftItem}>
+                <View style={styles.draftOperationIcon}>
+                  {draft.operation === 'add' && <Text style={styles.addIcon}>➕</Text>}
+                  {draft.operation === 'update' && <Text style={styles.updateIcon}>✏️</Text>}
+                  {draft.operation === 'complete' && <Text style={styles.completeIcon}>✅</Text>}
+                  {draft.operation === 'delete' && <Text style={styles.deleteIcon}>🗑</Text>}
+                </View>
                 <TouchableOpacity
                   style={styles.draftCheckbox}
                   onPress={() => toggleDraftSelection(draft.id)}
@@ -289,7 +310,7 @@ export default function TaskListScreen() {
 
       <View style={styles.bottomButtons}>
         <VoiceButton 
-          disabled={!voiceFlow.isAvailable()} 
+          disabled={!voiceAvailable} 
           onRecordingComplete={handleVoiceRecordingComplete}
         />
         <TouchableOpacity
@@ -377,13 +398,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  draftOperationIcon: {
+    width: 24,
+    marginLeft: 16,
+    marginRight: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addIcon: {
+    fontSize: 16,
+    color: '#007AFF',
+  },
+  updateIcon: {
+    fontSize: 16,
+    color: '#FF9500',
+  },
+  completeIcon: {
+    fontSize: 16,
+    color: '#34C759',
+  },
+  deleteIcon: {
+    fontSize: 16,
+    color: '#FF3B30',
+  },
   draftCheckbox: {
     width: 24,
     height: 24,
     borderRadius: 4,
     borderWidth: 2,
     borderColor: '#007AFF',
-    marginLeft: 16,
+    marginLeft: 4,
     marginRight: 8,
     alignItems: 'center',
     justifyContent: 'center',

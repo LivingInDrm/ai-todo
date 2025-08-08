@@ -169,6 +169,17 @@ NODE_ENV=test npm run test:changed       # Test only changed files
 NODE_ENV=test npm run test:related path/to/file.ts  # Find related tests
 ```
 
+## Linting & Type Checking
+
+```bash
+# TypeScript type checking
+npx tsc --noEmit          # Check types without generating files
+
+# ESLint (if configured)
+npm run lint              # Run linter (if script exists)
+npx eslint . --fix        # Auto-fix linting issues
+```
+
 ## Testing Infrastructure
 
 ### Test Environment Setup
@@ -191,7 +202,15 @@ NODE_ENV=test npm run test:related path/to/file.ts  # Find related tests
 - Use MSW for API testing: `import { server, errorHandlers } from '../../setup/mock/handlers'`
 
 ### Current Test Status
-- **Pass Rate**: 94.4% (51/54 tests passing)
-- **Known Issues**: 
-  - notifications.test.ts: Missing `getPermissionsAsync` mock
-  - cloud-sync.test.ts: Offline queue flush returning 0
+
+
+## Project Phases & Status
+
+**Completed (✅)**: Phases 1-6 including project setup, WatermelonDB integration, UI components, task management, detail sheet, and voice input with OpenAI integration.
+
+**In Progress**: Phase 7 - Supabase authentication & realtime sync
+
+**Upcoming**: 
+- Phase 8: Local notifications with expo-notifications
+- Phase 9: Settings screen with user preferences
+- Phase 10: Testing & performance optimization

@@ -82,6 +82,7 @@ class MockTaskModel {
   status: number;
   pending: boolean;
   completedTs?: number;
+  pinnedAt?: number;
   createdTs: number;
   updatedTs: number;
   storage: InMemoryStorage;
@@ -95,6 +96,7 @@ class MockTaskModel {
     this.status = data.status || 0;
     this.pending = data.pending || false;
     this.completedTs = data.completedTs;
+    this.pinnedAt = data.pinnedAt;
     this.createdTs = data.createdTs || Date.now();
     this.updatedTs = data.updatedTs || Date.now();
     this.storage = storage!;
@@ -157,6 +159,39 @@ class MockTaskModel {
     }
   }
   
+  async togglePin(): Promise<void> {
+    this.pinnedAt = this.pinnedAt ? undefined : Date.now();
+    this.updatedTs = Date.now();
+    if (this.storage) {
+      this.storage.update('tasks', this.id, {
+        pinnedAt: this.pinnedAt,
+        updatedTs: this.updatedTs
+      });
+    }
+  }
+  
+  async pin(): Promise<void> {
+    this.pinnedAt = Date.now();
+    this.updatedTs = Date.now();
+    if (this.storage) {
+      this.storage.update('tasks', this.id, {
+        pinnedAt: this.pinnedAt,
+        updatedTs: this.updatedTs
+      });
+    }
+  }
+  
+  async unpin(): Promise<void> {
+    this.pinnedAt = undefined;
+    this.updatedTs = Date.now();
+    if (this.storage) {
+      this.storage.update('tasks', this.id, {
+        pinnedAt: this.pinnedAt,
+        updatedTs: this.updatedTs
+      });
+    }
+  }
+  
   async update(fn: (task: any) => void): Promise<void> {
     fn(this);
     this.updatedTs = Date.now();
@@ -168,6 +203,7 @@ class MockTaskModel {
         status: this.status,
         pending: this.pending,
         completedTs: this.completedTs,
+        pinnedAt: this.pinnedAt,
         updatedTs: this.updatedTs
       });
     }
@@ -196,6 +232,7 @@ class MockCollection {
       status: record.status,
       pending: record.pending,
       completedTs: record.completedTs,
+      pinnedAt: record.pinnedAt,
       createdTs: record.createdTs,
       updatedTs: record.updatedTs,
     });

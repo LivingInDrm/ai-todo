@@ -2,6 +2,7 @@ import openai, { TaskOperation } from '../../services/openai';
 import { draftStore } from '../draft/draftStore';
 import { taskStore } from '../task/taskStore';
 import { TaskStatus } from '../../lib/types';
+import NetInfo from '@react-native-community/netinfo';
 
 class VoiceFlow {
   private isProcessing = false;
@@ -59,11 +60,13 @@ class VoiceFlow {
 
         case 'update_todo':
           // For updates, we need to find the existing task and create a draft update
-          if (operation.payload.id) {
-            const existingTask = await taskStore.getState().getTaskById(operation.payload.id);
+          if (operation.payload.id || operation.payload.title) {
+            const existingTask = operation.payload.id 
+              ? await taskStore.getState().getTaskById(operation.payload.id)
+              : await taskStore.getState().findTaskByTitle(operation.payload.title);
+            
             if (existingTask) {
               const updateDraft = {
-                ...existingTask,
                 title: operation.payload.title || existingTask.title,
                 due_ts: operation.payload.due_ts !== undefined 
                   ? operation.payload.due_ts 
@@ -71,8 +74,10 @@ class VoiceFlow {
                 urgent: operation.payload.urgent !== undefined 
                   ? operation.payload.urgent
                   : existingTask.urgent,
+                status: TaskStatus.Active,
                 pending: true,
                 action: 'update' as const,
+                targetTaskId: existingTask.id, // Reference to the original task
               };
               draftTasks.push(updateDraft);
             }
@@ -87,10 +92,13 @@ class VoiceFlow {
           
           if (taskToComplete) {
             const completeDraft = {
-              ...taskToComplete,
-              status: TaskStatus.Completed,
+              title: taskToComplete.title,
+              due_ts: taskToComplete.dueTs,
+              urgent: taskToComplete.urgent,
+              status: TaskStatus.Active, // Keep as active in draft
               pending: true,
               action: 'complete' as const,
+              targetTaskId: taskToComplete.id, // Reference to the original task
             };
             draftTasks.push(completeDraft);
           }
@@ -104,9 +112,13 @@ class VoiceFlow {
           
           if (taskToDelete) {
             const deleteDraft = {
-              ...taskToDelete,
+              title: taskToDelete.title,
+              due_ts: taskToDelete.dueTs,
+              urgent: taskToDelete.urgent,
+              status: TaskStatus.Active,
               pending: true,
               action: 'delete' as const,
+              targetTaskId: taskToDelete.id, // Reference to the original task
             };
             draftTasks.push(deleteDraft);
           }
@@ -132,8 +144,15 @@ class VoiceFlow {
     await draftStore.getState().undoLastConfirmation();
   }
 
-  isAvailable(): boolean {
-    return openai.isConfigured();
+  async isAvailable(): Promise<boolean> {
+    // Check if OpenAI is configured
+    if (!openai.isConfigured()) {
+      return false;
+    }
+
+    // Check network connectivity
+    const netState = await NetInfo.fetch();
+    return netState.isConnected === true && netState.isInternetReachable !== false;
   }
 }
 

@@ -6,6 +6,7 @@ export interface TaskData {
   status: number;
   pending: boolean;
   completedTs?: number;
+  pinnedAt?: number;
   createdTs: number;
   updatedTs: number;
 }
@@ -34,4 +35,5 @@ export interface VoiceOperation {
 export interface DraftTask extends TaskData {
   operation: VoiceOperation['action'];
   selected: boolean;
+  targetTaskId?: string; // For update/complete/delete operations
 }

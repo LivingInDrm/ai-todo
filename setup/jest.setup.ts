@@ -145,6 +145,26 @@ jest.mock('expo-notifications', () => ({
   removeNotificationSubscription: jest.fn(),
 }));
 
+// Mock @react-native-community/netinfo
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: jest.fn(() => Promise.resolve({
+    isConnected: true,
+    isInternetReachable: true,
+    type: 'wifi',
+    details: {
+      isConnectionExpensive: false,
+    }
+  })),
+  addEventListener: jest.fn(() => ({ unsubscribe: jest.fn() })),
+  refresh: jest.fn(() => Promise.resolve()),
+  configure: jest.fn(),
+  useNetInfo: jest.fn(() => ({
+    isConnected: true,
+    isInternetReachable: true,
+    type: 'wifi',
+  })),
+}));
+
 // Mock expo-secure-store
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
@@ -190,6 +210,13 @@ jest.mock('../db/database', () => {
     async update(fn: (task: any) => void): Promise<void> {
       fn(this);
       // Update in mock storage
+      const collection = mockDatabase.collections.get('tasks');
+      await collection.storage.update('tasks', this.id, this);
+    }
+    
+    async togglePin(): Promise<void> {
+      this.pinnedAt = this.pinnedAt ? undefined : Date.now();
+      this.updatedTs = Date.now();
       const collection = mockDatabase.collections.get('tasks');
       await collection.storage.update('tasks', this.id, this);
     }

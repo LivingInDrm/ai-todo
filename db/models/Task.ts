@@ -10,6 +10,7 @@ export default class Task extends Model {
   @field('status') status!: number; // 0: active, 1: completed
   @field('pending') pending!: boolean; // false: normal, true: draft
   @field('completed_ts') completedTs?: number;
+  @field('pinned_at') pinnedAt?: number;
   @readonly @date('created_ts') createdTs!: number;
   @date('updated_ts') updatedTs!: number;
 
@@ -76,6 +77,24 @@ export default class Task extends Model {
   async postpone(newDueTs: number) {
     await this.update((task) => {
       task.dueTs = newDueTs;
+    });
+  }
+
+  async pin() {
+    await this.update((task) => {
+      task.pinnedAt = Date.now();
+    });
+  }
+
+  async unpin() {
+    await this.update((task) => {
+      task.pinnedAt = undefined;
+    });
+  }
+
+  async togglePin() {
+    await this.update((task) => {
+      task.pinnedAt = task.pinnedAt ? undefined : Date.now();
     });
   }
 }

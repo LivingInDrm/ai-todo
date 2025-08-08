@@ -49,6 +49,7 @@ const useTaskStore = create<TaskStore>((set, get) => ({
         status: task.status,
         pending: task.pending,
         completedTs: task.completedTs,
+        pinnedAt: task.pinnedAt,
         createdTs: task.createdTs,
         updatedTs: task.updatedTs,
       }));
@@ -152,12 +153,16 @@ const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   pinTask: async (id: string) => {
-    const tasks = get().tasks;
-    const taskToPin = tasks.find(t => t.id === id);
-    if (!taskToPin) return;
-    
-    const otherTasks = tasks.filter(t => t.id !== id);
-    set({ tasks: [taskToPin, ...otherTasks] });
+    try {
+      await database.write(async () => {
+        const task = await database.collections.get<Task>('tasks').find(id);
+        await task.togglePin();
+      });
+      await get().fetchTasks();
+    } catch (error) {
+      console.error('Failed to pin task:', error);
+      set({ error: (error as Error).message });
+    }
   },
 
   setCurrentView: (view: TaskView) => {
@@ -175,6 +180,11 @@ const useTaskStore = create<TaskStore>((set, get) => ({
         task.dueTs !== undefined && task.dueTs <= weekFromNow
       )
       .sort((a, b) => {
+        // Pinned items first, sorted by pin time (newest pins first)
+        if (a.pinnedAt && b.pinnedAt) return b.pinnedAt - a.pinnedAt;
+        if (a.pinnedAt) return -1;
+        if (b.pinnedAt) return 1;
+        // Then by due date
         if (!a.dueTs && !b.dueTs) return 0;
         if (!a.dueTs) return 1;
         if (!b.dueTs) return -1;
@@ -192,7 +202,14 @@ const useTaskStore = create<TaskStore>((set, get) => ({
         task.status === TaskStatus.Active && 
         (!task.dueTs || task.dueTs > weekFromNow)
       )
-      .sort((a, b) => b.createdTs - a.createdTs);
+      .sort((a, b) => {
+        // Pinned items first, sorted by pin time (newest pins first)
+        if (a.pinnedAt && b.pinnedAt) return b.pinnedAt - a.pinnedAt;
+        if (a.pinnedAt) return -1;
+        if (b.pinnedAt) return 1;
+        // Then by creation time (newest first)
+        return b.createdTs - a.createdTs;
+      });
   },
 
   getDoneTasks: () => {

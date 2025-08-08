@@ -85,6 +85,8 @@ const TaskCell: React.FC<TaskCellProps> = ({
       overshootLeft={false}
       overshootRight={false}
       friction={2}
+      leftThreshold={30}  // Trigger at 30% of swipe distance
+      rightThreshold={30} // Trigger at 30% of swipe distance
     >
       <TouchableOpacity
         style={styles.container}

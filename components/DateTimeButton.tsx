@@ -50,6 +50,13 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
     }
     
     if (selectedDate) {
+      // If only date mode and time is 00:00, set default to 09:00
+      if (mode === 'date' && 
+          selectedDate.getHours() === 0 && 
+          selectedDate.getMinutes() === 0) {
+        selectedDate.setHours(9, 0, 0, 0);
+      }
+      
       setTempDate(selectedDate);
       if (Platform.OS === 'android') {
         onChange(selectedDate);
@@ -58,7 +65,15 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
   };
 
   const handleDone = () => {
-    onChange(tempDate);
+    // If only date mode and time is 00:00, set default to 09:00
+    const finalDate = new Date(tempDate);
+    if (mode === 'date' && 
+        finalDate.getHours() === 0 && 
+        finalDate.getMinutes() === 0) {
+      finalDate.setHours(9, 0, 0, 0);
+    }
+    
+    onChange(finalDate);
     setShowPicker(false);
   };
 

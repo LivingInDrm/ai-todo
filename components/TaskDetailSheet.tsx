@@ -1,4 +1,4 @@
-import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import BottomSheet from './BottomSheet';
 import DateTimeButton from './DateTimeButton';
 import { TaskData } from '../lib/types';
+import { debounce } from 'lodash';
 
 interface TaskDetailSheetProps {
   task?: TaskData;
@@ -31,6 +32,24 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
     const [dueDate, setDueDate] = useState<Date | undefined>();
     const [isUrgent, setIsUrgent] = useState(false);
     const [currentTask, setCurrentTask] = useState<TaskData | undefined>();
+    const saveTimeoutRef = useRef<NodeJS.Timeout>();
+
+    // Create debounced auto-save function (400ms delay)
+    const debouncedAutoSave = useCallback(
+      debounce((taskTitle: string, taskDueDate: Date | undefined, taskUrgent: boolean, task?: TaskData) => {
+        if (!taskTitle.trim() || !task) return;
+        
+        const taskData: Partial<TaskData> = {
+          id: task.id,
+          title: taskTitle.trim(),
+          dueTs: taskDueDate?.getTime(),
+          urgent: taskUrgent,
+        };
+        
+        onSave(taskData);
+      }, 400),
+      [onSave]
+    );
 
     useImperativeHandle(ref, () => ({
       present: (task?: TaskData) => {
@@ -41,13 +60,32 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
         bottomSheetRef.current?.present();
       },
       dismiss: () => {
+        // Force save before dismissing
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        debouncedAutoSave.cancel();
+        handleSave();
         bottomSheetRef.current?.dismiss();
       },
     }));
 
+    // Auto-save when title changes
+    useEffect(() => {
+      if (currentTask && title.trim()) {
+        debouncedAutoSave(title, dueDate, isUrgent, currentTask);
+      }
+    }, [title, currentTask, dueDate, isUrgent, debouncedAutoSave]);
+
+    // Auto-save when date or urgent changes
+    useEffect(() => {
+      if (currentTask && title.trim()) {
+        debouncedAutoSave(title, dueDate, isUrgent, currentTask);
+      }
+    }, [dueDate, isUrgent]);
+
     const handleSave = () => {
       if (!title.trim()) {
-        bottomSheetRef.current?.dismiss();
         return;
       }
 
@@ -62,16 +100,24 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
       }
 
       onSave(taskData);
-      bottomSheetRef.current?.dismiss();
     };
 
     const handleClose = () => {
+      // Cancel pending auto-save and force immediate save
+      debouncedAutoSave.cancel();
       handleSave();
     };
 
     const toggleUrgent = () => {
       setIsUrgent(!isUrgent);
     };
+
+    // Clean up on unmount
+    useEffect(() => {
+      return () => {
+        debouncedAutoSave.cancel();
+      };
+    }, [debouncedAutoSave]);
 
     return (
       <BottomSheet

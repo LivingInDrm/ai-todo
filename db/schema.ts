@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export default appSchema({
-  version: 1,
+  version: 2,
   tables: [
     tableSchema({
       name: 'tasks',
@@ -14,6 +14,7 @@ export default appSchema({
         { name: 'completed_ts', type: 'number', isOptional: true },
         { name: 'created_ts', type: 'number', isOptional: false },
         { name: 'updated_ts', type: 'number', isOptional: false },
+        { name: 'pinned_at', type: 'number', isOptional: true }, // Timestamp when pinned
       ],
     }),
   ],

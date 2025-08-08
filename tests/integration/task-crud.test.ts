@@ -260,7 +260,7 @@ describe('Task CRUD Operations', () => {
     it('should pin task to top of Focus view', async () => {
       const { result } = renderHook(() => useTaskStore());
 
-      // Create multiple tasks
+      // Create multiple tasks (they'll be in Backlog since no due dates)
       await act(async () => {
         await result.current.createTask('Task 1');
         await result.current.createTask('Task 2');
@@ -274,15 +274,22 @@ describe('Task CRUD Operations', () => {
         await result.current.pinTask(taskToPin.id);
       });
 
-      // Verify task is at top
-      expect(result.current.tasks[0].id).toBe(taskToPin.id);
+      // Verify task is pinned (has pinnedAt timestamp)
+      const pinnedTask = result.current.tasks.find(t => t.id === taskToPin.id);
+      expect(pinnedTask?.pinnedAt).toBeDefined();
+      expect(pinnedTask?.pinnedAt).toBeGreaterThan(0);
 
-      // Pin again should not change position
+      // Check in Backlog view (since tasks have no due dates)
+      const backlogTasks = result.current.getBacklogTasks();
+      expect(backlogTasks[0].id).toBe(taskToPin.id);
+
+      // Pin again should toggle it off
       await act(async () => {
         await result.current.pinTask(taskToPin.id);
       });
 
-      expect(result.current.tasks[0].id).toBe(taskToPin.id);
+      const unpinnedTask = result.current.tasks.find(t => t.id === taskToPin.id);
+      expect(unpinnedTask?.pinnedAt).toBeUndefined();
     });
   });
 
