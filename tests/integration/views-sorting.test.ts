@@ -41,9 +41,9 @@ describe('Three-View System and Sorting', () => {
 
       // Create tasks with different due dates
       await act(async () => {
-        await result.current.createTask('Task Next Week', nextWeek);
-        await result.current.createTask('Task Tomorrow', tomorrow);
-        await result.current.createTask('Task Day After', dayAfter);
+        await result.current.createTask({ title: 'Task Next Week', dueTs: nextWeek });
+        await result.current.createTask({ title: 'Task Tomorrow', dueTs: tomorrow });
+        await result.current.createTask({ title: 'Task Day After', dueTs: dayAfter });
         await result.current.createTask('Task No Date'); // No due date
       });
 
@@ -69,9 +69,9 @@ describe('Three-View System and Sorting', () => {
 
       // Create overdue tasks
       await act(async () => {
-        await result.current.createTask('Overdue Yesterday', yesterday);
-        await result.current.createTask('Overdue Last Week', lastWeek);
-        await result.current.createTask('Current Task', Date.now());
+        await result.current.createTask({ title: 'Overdue Yesterday', dueTs: yesterday });
+        await result.current.createTask({ title: 'Overdue Last Week', dueTs: lastWeek });
+        await result.current.createTask({ title: 'Current Task', dueTs: Date.now() });
       });
 
       const focusTasks = result.current.getFocusTasks();
@@ -141,8 +141,8 @@ describe('Three-View System and Sorting', () => {
       const nextMonth = Date.now() + (30 * 24 * 60 * 60 * 1000);
 
       await act(async () => {
-        await result.current.createTask('Tomorrow Task', tomorrow);
-        await result.current.createTask('Next Month Task', nextMonth);
+        await result.current.createTask({ title: 'Tomorrow Task', dueTs: tomorrow });
+        await result.current.createTask({ title: 'Next Month Task', dueTs: nextMonth });
       });
 
       const backlogTasks = result.current.getBacklogTasks();
@@ -236,8 +236,8 @@ describe('Three-View System and Sorting', () => {
       const moreThan7Days = exactly7Days + (60 * 1000); // Add 1 minute instead of 1ms to avoid timing issues
 
       await act(async () => {
-        await result.current.createTask('Exactly 7 Days', exactly7Days);
-        await result.current.createTask('More Than 7 Days', moreThan7Days);
+        await result.current.createTask({ title: 'Exactly 7 Days', dueTs: exactly7Days });
+        await result.current.createTask({ title: 'More Than 7 Days', dueTs: moreThan7Days });
       });
 
       const focusTasks = result.current.getFocusTasks();

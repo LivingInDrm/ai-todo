@@ -263,9 +263,9 @@ describe('Task CRUD Operations', () => {
       // Create multiple tasks with due dates so they appear in Focus view
       const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
       await act(async () => {
-        await result.current.createTask('Task 1', tomorrow);
-        await result.current.createTask('Task 2', tomorrow);
-        await result.current.createTask('Task 3', tomorrow);
+        await result.current.createTask({ title: 'Task 1', dueTs: tomorrow });
+        await result.current.createTask({ title: 'Task 2', dueTs: tomorrow });
+        await result.current.createTask({ title: 'Task 3', dueTs: tomorrow });
       });
 
       const taskToPin = result.current.tasks[1]; // Pin Task 2
