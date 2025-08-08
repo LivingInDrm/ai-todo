@@ -4,6 +4,7 @@ import database, { Task } from '../../db/database';
 import { DraftTask, TaskData, TaskStatus, VoiceOperation } from '../../lib/types';
 import useTaskStore from '../task/taskStore';
 import reminderService from '../notify/reminderService';
+import { taskSyncService } from '../task/taskSync';
 
 interface UndoOperation {
   type: 'add' | 'update' | 'complete' | 'delete';
@@ -231,6 +232,9 @@ const useDraftStore = create<DraftStore>((set, get) => ({
               updated_ts: task.updatedTs
             });
           }
+          
+          // Sync to cloud after confirmation
+          await taskSyncService.syncTaskToSupabase(task);
         }
       });
       
@@ -385,6 +389,30 @@ const useDraftStore = create<DraftStore>((set, get) => ({
             confirmedIds.push(draft.id);
             undoOperations.push({ type: 'add', taskId: draft.id });
             added++;
+            
+            // Set reminder for new tasks with due dates
+            if (task.dueTs && task.status === TaskStatus.Active) {
+              await reminderService.setReminder({
+                id: task.id,
+                title: task.title,
+                dueTs: task.dueTs,
+                due_ts: task.dueTs,
+                urgent: task.urgent,
+                status: task.status,
+                pending: false,
+                pinnedAt: task.pinnedAt,
+                pinned_at: task.pinnedAt,
+                completedTs: task.completedTs,
+                completed_ts: task.completedTs,
+                createdTs: task.createdTs,
+                created_ts: task.createdTs,
+                updatedTs: task.updatedTs,
+                updated_ts: task.updatedTs
+              });
+            }
+            
+            // Sync new task to cloud
+            await taskSyncService.syncTaskToSupabase(task);
           } else if (draft.targetTaskId) {
             // For update/complete/delete, operate on the target task
             const targetTask = await database.collections.get<Task>('tasks').find(draft.targetTaskId);
@@ -410,6 +438,30 @@ const useDraftStore = create<DraftStore>((set, get) => ({
                   taskId: draft.targetTaskId,
                   previousState: prevUpdateState
                 });
+                
+                // Update reminder if due date changed
+                if (targetTask.dueTs !== prevUpdateState.dueTs) {
+                  await reminderService.setReminder({
+                    id: targetTask.id,
+                    title: targetTask.title,
+                    dueTs: targetTask.dueTs,
+                    due_ts: targetTask.dueTs,
+                    urgent: targetTask.urgent,
+                    status: targetTask.status,
+                    pending: false,
+                    pinnedAt: targetTask.pinnedAt,
+                    pinned_at: targetTask.pinnedAt,
+                    completedTs: targetTask.completedTs,
+                    completed_ts: targetTask.completedTs,
+                    createdTs: targetTask.createdTs,
+                    created_ts: targetTask.createdTs,
+                    updatedTs: targetTask.updatedTs,
+                    updated_ts: targetTask.updatedTs
+                  });
+                }
+                
+                // Sync updated task to cloud
+                await taskSyncService.syncTaskToSupabase(targetTask);
                 break;
                 
               case 'complete':
@@ -426,6 +478,12 @@ const useDraftStore = create<DraftStore>((set, get) => ({
                   taskId: draft.targetTaskId,
                   previousState: prevCompleteState
                 });
+                
+                // Cancel reminder for completed task
+                await reminderService.cancelReminder(targetTask.id);
+                
+                // Sync completed task to cloud
+                await taskSyncService.syncTaskToSupabase(targetTask);
                 break;
                 
               case 'delete':
@@ -449,6 +507,12 @@ const useDraftStore = create<DraftStore>((set, get) => ({
                   taskId: draft.targetTaskId,
                   previousState: prevDeleteState
                 });
+                
+                // Cancel reminder for deleted task
+                await reminderService.cancelReminder(targetTask.id);
+                
+                // Delete task from cloud
+                await taskSyncService.deleteTaskFromSupabase(targetTask.id);
                 break;
             }
             
@@ -496,6 +560,30 @@ const useDraftStore = create<DraftStore>((set, get) => ({
           const task = await database.collections.get<Task>('tasks').find(draft.id);
           await task.confirmDraft();
           undoOperations.push({ type: 'add', taskId: draft.id });
+          
+          // Set reminder for new tasks with due dates
+          if (task.dueTs && task.status === TaskStatus.Active) {
+            await reminderService.setReminder({
+              id: task.id,
+              title: task.title,
+              dueTs: task.dueTs,
+              due_ts: task.dueTs,
+              urgent: task.urgent,
+              status: task.status,
+              pending: false,
+              pinnedAt: task.pinnedAt,
+              pinned_at: task.pinnedAt,
+              completedTs: task.completedTs,
+              completed_ts: task.completedTs,
+              createdTs: task.createdTs,
+              created_ts: task.createdTs,
+              updatedTs: task.updatedTs,
+              updated_ts: task.updatedTs
+            });
+          }
+          
+          // Sync new task to cloud
+          await taskSyncService.syncTaskToSupabase(task);
         } else if (draft.targetTaskId) {
           // For update/complete/delete, operate on the target task
           const targetTask = await database.collections.get<Task>('tasks').find(draft.targetTaskId);
@@ -520,6 +608,30 @@ const useDraftStore = create<DraftStore>((set, get) => ({
                 taskId: draft.targetTaskId,
                 previousState: prevUpdateState
               });
+              
+              // Update reminder if due date changed
+              if (targetTask.dueTs !== prevUpdateState.dueTs) {
+                await reminderService.setReminder({
+                  id: targetTask.id,
+                  title: targetTask.title,
+                  dueTs: targetTask.dueTs,
+                  due_ts: targetTask.dueTs,
+                  urgent: targetTask.urgent,
+                  status: targetTask.status,
+                  pending: false,
+                  pinnedAt: targetTask.pinnedAt,
+                  pinned_at: targetTask.pinnedAt,
+                  completedTs: targetTask.completedTs,
+                  completed_ts: targetTask.completedTs,
+                  createdTs: targetTask.createdTs,
+                  created_ts: targetTask.createdTs,
+                  updatedTs: targetTask.updatedTs,
+                  updated_ts: targetTask.updatedTs
+                });
+              }
+              
+              // Sync updated task to cloud
+              await taskSyncService.syncTaskToSupabase(targetTask);
               break;
               
             case 'complete':
@@ -535,6 +647,12 @@ const useDraftStore = create<DraftStore>((set, get) => ({
                 taskId: draft.targetTaskId,
                 previousState: prevCompleteState
               });
+              
+              // Cancel reminder for completed task
+              await reminderService.cancelReminder(targetTask.id);
+              
+              // Sync completed task to cloud
+              await taskSyncService.syncTaskToSupabase(targetTask);
               break;
               
             case 'delete':
@@ -557,6 +675,12 @@ const useDraftStore = create<DraftStore>((set, get) => ({
                 taskId: draft.targetTaskId,
                 previousState: prevDeleteState
               });
+              
+              // Cancel reminder for deleted task
+              await reminderService.cancelReminder(targetTask.id);
+              
+              // Delete task from cloud
+              await taskSyncService.deleteTaskFromSupabase(targetTask.id);
               break;
           }
           

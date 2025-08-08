@@ -1,71 +1,93 @@
-## AI-Todo 设计一致性问题清单（对照 design.md）
+# 项目问题清单（Phase 7 ~ 9）
 
-本清单记录当前代码与 `design.md` 的偏差与潜在风险，按优先级分组。每项包含：现状、影响、涉及位置与建议修复。
+> 本清单聚焦与 design.md 不一致或有风险的实现点，优先级按 高/中/低 标注。
 
-### 修复状态汇总
-✅ **所有问题已修复** (2025-08-08)
-- 高优先级: 1/1 已修复
-- 中优先级: 5/5 已修复
-- 所有测试通过: 60/60 tests passed
+## P7 – Supabase 集成 / 同步
 
----
+- [高] ✅ 草稿确认未触发云端同步 [已修复]
+  - 描述：`features/draft/draftStore.ts` 的 `confirmSelectedDrafts / confirmSingleDraft` 仅更新本地 WatermelonDB，并删除草稿，未调用 `taskSyncService.syncTaskToSupabase` 或 `deleteTaskFromSupabase`。
+  - 影响：跨设备不一致；通过语音确认生成/修改/删除的任务不会同步到云端。
+  - 涉及：`features/draft/draftStore.ts`、`features/task/taskSync.ts`
+  - 修复内容：
+    - add：确认后调用 `syncTaskToSupabase(任务)` 并设置提醒
+    - update：更新目标任务后调用 `syncTaskToSupabase(目标任务)` 并更新提醒
+    - complete：完成目标任务后调用 `syncTaskToSupabase(目标任务)` 并取消提醒
+    - delete：删除目标任务后调用 `deleteTaskFromSupabase(targetTaskId)` 并取消提醒
+  - 验收：在另一设备收到 Realtime 事件可见一致状态；手动下拉刷新后仍一致。
 
-### 高优先级
+- [中] ✅ 离线队列未持久化 [已修复]
+  - 描述：`taskSyncService` 仅用内存 `Map` 暂存重试队列，App 重启后丢失。
+  - 影响：离线修改在重启后无法自动上云，潜在数据丢失。
+  - 涉及：`features/task/taskSync.ts`
+  - 修复内容：
+    - 使用 AsyncStorage 持久化离线队列
+    - 启动时自动加载并处理离线队列
+    - 实现指数退避重试机制（最大5分钟间隔）
+    - 成功同步后清理持久化队列
+  - 验收：离线创建/修改/删除 → 重启 → 联网后自动上云。
 
-#### 1) ✅ [已修复] 撤销逻辑会导致数据丢失，未按"逆转事务"实现
-- 现状：批量确认后将新建任务 ID 与受影响的目标任务 ID 一起记录到 `lastConfirmedIds`。触发撤销时，统一执行“删除这些任务”。对 update/complete/delete 并未恢复原状态，而是把目标任务删掉。
-- 影响：用户点击“撤销”可能把已有任务删除，产生不可逆的数据丢失；与设计中“撤销在 3 s 内逆转同一事务”冲突。
-- 位置：`features/draft/draftStore.ts` → `confirmSelectedDrafts` 与 `undoLastConfirmation`。
-- 建议：将每次确认的“新增/更新/完成/删除”细分记录为变更日志（或快照），撤销时按类型精确回滚：
-  - add → 删除新建任务；
-  - update → 用快照还原 `title/dueTs/urgent`；
-  - complete → 恢复为 Active，并清空 `completedTs`；
-  - delete → 恢复被删除任务（考虑用软删标志替代物理删除，或提供回收站）。
+- [中] 认证方式与设计不一致
+  - 描述：当前 UI 使用邮箱+密码；设计建议 Magic Link / OAuth。虽有 `authService.signInWithMagicLink`，但未接入 UI。
+  - 影响：与设计偏差；可能影响注册/登录转化与安全体验。
+  - 涉及：`app/auth.tsx`、`features/auth/authService.ts`
+  - 建议：在登录页提供 Magic Link（默认）并保留密码登录为备选；路由保护与状态提示优化。
+  - 验收：用户可通过邮件链接完成登录；状态联动正常。
 
+- [中] ✅ 登出后的本地数据隔离 [已修复]
+  - 描述：登出仅清 session，未清理或隔离本地数据。
+  - 影响：账号切换时可能看到上个账号的本地任务；隐私与一致性风险。
+  - 涉及：`features/auth/authStore.ts`、`db/**`
+  - 修复内容：
+    - 登出时清除所有本地任务数据
+    - 取消所有本地通知
+    - 清理离线同步队列
+    - 清除用户相关的缓存数据
+    - 登录时自动触发初始同步
+  - 验收：账号切换后不再看到前一账号的数据。
 
-### 中优先级
+- [中] ✅ Push Token 未上报到 Supabase [已修复]
+  - 描述：未将 APNs/FCM token 写入 `profiles.push_token`。
+  - 影响：服务端推送/调度能力受限。
+  - 涉及：`features/notify/notificationService.ts`、`features/auth/authService.ts`
+  - 修复内容：
+    - 在请求通知权限后自动获取推送令牌
+    - 调用 `authService.updateProfile({ push_token })` 上传到 Supabase
+    - 添加错误处理和日志记录
+  - 验收：`profiles.push_token` 按用户写入成功。
 
-#### 2) ✅ [已修复] Backlog 排序包含"置顶优先"，与设计不符
-- 现状：Backlog 列表排序也优先 `pinnedAt`，随后按 `createdTs ↓`。
-- 影响：Backlog 中出现“置顶优先”，而设计强调“置顶仅在 Focus 生效”。
-- 位置：`features/task/taskStore.ts` → `getBacklogTasks` 排序逻辑。
-- 建议：移除 Backlog 的 `pinnedAt` 排序，仅保留 `createdTs ↓`；置顶逻辑仅用于 Focus。
+## P8 – 本地提醒
 
-#### 3) ✅ [已修复] 详情卡片删除与"关闭强制保存"存在竞态
-- 现状：详情卡片内点击“删除”后调用 `dismiss()`，底层 `onClose` 会无条件执行 `handleSave()`，可能对已删除任务再次发起更新。
-- 影响：产生冗余更新与潜在异常，影响稳定性与日志质量。
-- 位置：`components/TaskDetailSheet.tsx`（删除按钮回调与 `onClose`/`handleSave`）。
-- 建议：删除时设置 `isDeleting` 标志，`onClose` 判断后跳过保存；或在 `dismiss` 时提供一个不触发保存的关闭分支。
+- [中-高] ✅ 草稿确认未联动提醒 [已修复]
+  - 描述：通过草稿流完成/删除未取消提醒；新增/更新未必调度提醒。
+  - 影响：已完成/已删除任务仍然推送；新增/更新错过提醒。
+  - 涉及：`features/draft/draftStore.ts`、`features/notify/reminderService.ts`
+  - 修复内容（已在 P7 修复中完成）：
+    - add：确认后调用 `reminderService.setReminder(task)`
+    - update：更新后根据 due_ts 变化调用 `reminderService.setReminder(task)`
+    - complete/delete：调用 `reminderService.cancelReminder(taskId)`
+  - 验收：对应操作后已排定/取消的本地通知与任务状态一致。
 
-#### 4) ✅ [已修复] 右滑触发阈值使用像素而非"≈30%"比例
-- 现状：`Swipeable` 使用 `leftThreshold/rightThreshold={30}`（像素）。
-- 影响：不同设备宽度下触发距离不一致，与设计“≈30%”不符。
-- 位置：`components/TaskCell.tsx`。
-- 建议：基于行宽计算阈值（约 0.3×cell 宽度）；或使用支持百分比阈值的手势实现。
+- [低] ✅ 通知 handler 使用非标准字段 [已修复]
+  - 描述：`shouldShowBanner`/`shouldShowList` 可能非 Expo 标准字段，存在不兼容风险。
+  - 涉及：`features/notify/notificationService.ts`
+  - 修复内容：移除非标准的 `shouldShowBanner` 和 `shouldShowList` 字段，仅保留官方支持的字段
+  - 验收：应用通知行为正常，无警告日志。
 
-#### 5) ✅ [已修复] "仅日期默认 09:00"在当前路径不生效
-- 现状：详情卡片使用 `mode="datetime"`；`DateTimeButton` 仅在 `mode="date"` 分支把 00:00 调整为 09:00。
-- 影响：用户只想设定日期的场景下不会自动补 09:00，偏离设计。
-- 位置：`components/TaskDetailSheet.tsx`（传入 `mode`）、`components/DateTimeButton.tsx`（默认 09:00 逻辑）。
-- 建议：提供“仅日期”入口（如 MoreActionSheet 的“自定义日期”进入 `date` 模式）；或在 `datetime` 下检测用户未改动时间时也补 09:00。
+- [低] ✅ 启动时未清理 30 天前 Done 记录 [已修复]
+  - 描述：设计要求启动清理历史 Done；实现缺失。
+  - 涉及：启动流程 `_layout.tsx`、`features/task/taskStore.ts`
+  - 修复内容：
+    - 在 taskStore 中添加 `cleanupOldDoneTasks` 方法
+    - 查询并删除 completed_ts < now - 30d 的记录
+    - 取消相关提醒并同步删除到云端
+    - 在 _layout.tsx 启动时自动调用清理
+  - 验收：超期记录被清理；提醒同步取消。
 
-#### 6) ✅ [已修复] 类型文件重复，可能引发跨平台构建问题
-- 现状：存在大小写不同但内容重复的 `lib/types.ts` 与 `Lib/types.ts`。
-- 影响：macOS（大小写不敏感）与 CI/Linux（大小写敏感）行为不一致，易出现类型分裂/引用混乱。
-- 位置：`lib/types.ts` 与 `Lib/types.ts`。
-- 建议：统一仅保留 `lib/types.ts`，删除重复文件并全局修正引用。
+## P9 – 设置页
 
----
+- [低-中] GDPR/CCPA 数据删除入口缺失
+  - 描述：设计要求提供数据删除能力；设置页无入口。
+  - 影响：合规与用户控制力不足。
+  - 建议：在设置页新增“删除数据”入口，调用后端/Edge Function 或执行 `delete from todos where user_id=…`；提供确认与进度反馈。
+  - 验收：执行后远端数据清空，客户端同步清理。
 
-
-## 参考位置（便于定位）
-
-- 撤销相关：`features/draft/draftStore.ts` → `confirmSelectedDrafts`、`undoLastConfirmation`
-- OpenAI Key：`services/openai.ts`
-- 排序逻辑：`features/task/taskStore.ts` → `getBacklogTasks`/`getFocusTasks`
-- 详情保存/删除：`components/TaskDetailSheet.tsx`、`components/BottomSheet.tsx`
-- 滑动阈值：`components/TaskCell.tsx`
-- 日期按钮：`components/DateTimeButton.tsx`、`components/TaskDetailSheet.tsx`
-- 类型定义：`lib/types.ts` 与 `Lib/types.ts`
-
----

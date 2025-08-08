@@ -5,17 +5,63 @@ import { TaskData } from '../../lib/types';
 import { authService } from '../auth/authService';
 import database from '../../db/database';
 import { Q } from '@nozbe/watermelondb';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const OFFLINE_QUEUE_KEY = 'task_sync_offline_queue';
 
 class TaskSyncService {
   private channel: RealtimeChannel | null = null;
   private syncQueue: Map<string, SupabaseTask> = new Map();
   private isSyncing = false;
   private retryTimeout: NodeJS.Timeout | null = null;
+  private queueInitialized = false;
+  
+  /**
+   * Load offline queue from persistent storage
+   */
+  private async loadOfflineQueue(): Promise<void> {
+    if (this.queueInitialized) return;
+    
+    try {
+      const stored = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
+      if (stored) {
+        const queue = JSON.parse(stored) as SupabaseTask[];
+        queue.forEach(task => {
+          this.syncQueue.set(task.id, task);
+        });
+        console.log(`Loaded ${queue.length} items from offline queue`);
+      }
+      this.queueInitialized = true;
+    } catch (error) {
+      console.error('Failed to load offline queue:', error);
+      this.queueInitialized = true;
+    }
+  }
+  
+  /**
+   * Save offline queue to persistent storage
+   */
+  private async saveOfflineQueue(): Promise<void> {
+    try {
+      const queue = Array.from(this.syncQueue.values());
+      await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+    } catch (error) {
+      console.error('Failed to save offline queue:', error);
+    }
+  }
   
   /**
    * Initialize real-time subscription for task updates
    */
   async initializeRealtimeSync(): Promise<void> {
+    // Load offline queue first
+    await this.loadOfflineQueue();
+    
+    // Process offline queue if there are items
+    if (this.syncQueue.size > 0) {
+      console.log('Processing offline queue on initialization...');
+      this.processOfflineQueue();
+    }
     if (!isSupabaseConfigured()) {
       console.log('Supabase not configured, skipping realtime sync');
       return;
@@ -170,6 +216,9 @@ class TaskSyncService {
         } else if (remoteTask.updated_ts > localTask.updatedTs) {
           // Remote task is newer, update local
           await this.syncTaskToLocal(remoteTask);
+        } else if (localTask.updatedTs > remoteTask.updated_ts) {
+          // Local task is newer, update remote
+          await this.syncTaskToSupabase(localTask);
         }
       }
       
@@ -195,18 +244,13 @@ class TaskSyncService {
    * Sync a local task to Supabase
    */
   async syncTaskToSupabase(task: any): Promise<void> {
-    if (!isSupabaseConfigured()) {
-      // Add to offline queue
-      this.addToOfflineQueue(task);
-      return;
-    }
-    
     const user = await authService.getCurrentUser();
     if (!user) {
       console.log('No authenticated user, skipping sync to Supabase');
       return;
     }
     
+    // Convert to Supabase format first, regardless of online/offline status
     const supabaseTask: SupabaseTask = {
       id: task.id,
       user_id: user.id,
@@ -220,6 +264,12 @@ class TaskSyncService {
       created_ts: task.createdTs,
       updated_ts: task.updatedTs,
     };
+    
+    if (!isSupabaseConfigured()) {
+      // Add to offline queue in Supabase format
+      this.addToOfflineQueue(supabaseTask);
+      return;
+    }
     
     try {
       const { error } = await supabase!
@@ -269,14 +319,16 @@ class TaskSyncService {
   /**
    * Add task to offline queue for later sync
    */
-  private addToOfflineQueue(task: SupabaseTask): void {
+  private async addToOfflineQueue(task: SupabaseTask): Promise<void> {
     this.syncQueue.set(task.id, task);
+    await this.saveOfflineQueue();
     
-    // Schedule retry
+    // Schedule retry with exponential backoff
     if (!this.retryTimeout) {
+      const retryDelay = Math.min(30000 * Math.pow(2, this.syncQueue.size - 1), 300000); // Max 5 minutes
       this.retryTimeout = setTimeout(() => {
         this.processOfflineQueue();
-      }, 30000); // Retry after 30 seconds
+      }, retryDelay);
     }
   }
   
@@ -296,7 +348,8 @@ class TaskSyncService {
     console.log(`Processing offline queue with ${this.syncQueue.size} items`);
     
     const tasksToSync = Array.from(this.syncQueue.values());
-    this.syncQueue.clear();
+    const failedTasks: SupabaseTask[] = [];
+    let successCount = 0;
     
     for (const task of tasksToSync) {
       try {
@@ -308,25 +361,47 @@ class TaskSyncService {
         
         if (error) {
           console.error('Error syncing queued task:', error);
-          this.addToOfflineQueue(task);
+          failedTasks.push(task);
+        } else {
+          successCount++;
+          this.syncQueue.delete(task.id);
         }
       } catch (error) {
         console.error('Error syncing queued task:', error);
-        this.addToOfflineQueue(task);
+        failedTasks.push(task);
       }
     }
     
-    // Clear retry timeout if queue is empty
-    if (this.syncQueue.size === 0 && this.retryTimeout) {
-      clearTimeout(this.retryTimeout);
-      this.retryTimeout = null;
+    // Re-add failed tasks to queue
+    if (failedTasks.length > 0) {
+      failedTasks.forEach(task => {
+        this.syncQueue.set(task.id, task);
+      });
+      await this.saveOfflineQueue();
+      
+      // Schedule retry with exponential backoff
+      if (!this.retryTimeout) {
+        const retryDelay = Math.min(30000 * Math.pow(2, failedTasks.length), 300000); // Max 5 minutes
+        this.retryTimeout = setTimeout(() => {
+          this.processOfflineQueue();
+        }, retryDelay);
+      }
+    } else {
+      // Clear queue if all successful
+      await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
+      if (this.retryTimeout) {
+        clearTimeout(this.retryTimeout);
+        this.retryTimeout = null;
+      }
     }
+    
+    console.log(`Sync complete: ${successCount} successful, ${failedTasks.length} failed`);
   }
   
   /**
    * Cleanup subscriptions and timers
    */
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     if (this.channel) {
       supabase?.removeChannel(this.channel);
       this.channel = null;
@@ -335,6 +410,11 @@ class TaskSyncService {
     if (this.retryTimeout) {
       clearTimeout(this.retryTimeout);
       this.retryTimeout = null;
+    }
+    
+    // Save any pending items before cleanup
+    if (this.syncQueue.size > 0) {
+      await this.saveOfflineQueue();
     }
   }
 }

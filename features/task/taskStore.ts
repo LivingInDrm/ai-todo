@@ -28,6 +28,7 @@ interface TaskStore {
   getTaskById: (id: string) => Promise<TaskData | null>;
   findTaskByTitle: (title: string) => Promise<TaskData | null>;
   clearCompletedTasks: () => Promise<void>;
+  cleanupOldDoneTasks: () => Promise<void>;
 }
 
 const useTaskStore = create<TaskStore>((set, get) => ({
@@ -195,32 +196,36 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   toggleTaskStatus: async (id: string) => {
     try {
-      await database.write(async () => {
+      const updatedTask = await database.write(async () => {
         const task = await database.collections.get<Task>('tasks').find(id);
         if (task.isCompleted) {
           await task.markAsActive();
         } else {
           await task.markAsCompleted();
         }
-        
-        // Update reminder after status change
-        await reminderService.setReminder({
-          id: task.id,
-          title: task.title,
-          dueTs: task.dueTs,
-          due_ts: task.dueTs,
-          urgent: task.urgent,
-          status: task.isCompleted ? TaskStatus.Completed : TaskStatus.Active,
-          pending: task.pending,
-          pinnedAt: task.pinnedAt,
-          pinned_at: task.pinnedAt,
-          completedTs: task.completedTs,
-          completed_ts: task.completedTs,
-          createdTs: task.createdTs,
-          created_ts: task.createdTs,
-          updatedTs: task.updatedTs,
-          updated_ts: task.updatedTs
-        });
+        return task;
+      });
+      
+      // Sync to Supabase
+      await taskSyncService.syncTaskToSupabase(updatedTask);
+      
+      // Update reminder after status change
+      await reminderService.setReminder({
+        id: updatedTask.id,
+        title: updatedTask.title,
+        dueTs: updatedTask.dueTs,
+        due_ts: updatedTask.dueTs,
+        urgent: updatedTask.urgent,
+        status: updatedTask.status,
+        pending: updatedTask.pending,
+        pinnedAt: updatedTask.pinnedAt,
+        pinned_at: updatedTask.pinnedAt,
+        completedTs: updatedTask.completedTs,
+        completed_ts: updatedTask.completedTs,
+        createdTs: updatedTask.createdTs,
+        created_ts: updatedTask.createdTs,
+        updatedTs: updatedTask.updatedTs,
+        updated_ts: updatedTask.updatedTs
       });
       
       await get().fetchTasks();
@@ -231,9 +236,32 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   postponeTask: async (id: string, newDueTs: number) => {
     try {
-      await database.write(async () => {
+      const updatedTask = await database.write(async () => {
         const task = await database.collections.get<Task>('tasks').find(id);
         await task.postpone(newDueTs);
+        return task;
+      });
+      
+      // Sync to Supabase
+      await taskSyncService.syncTaskToSupabase(updatedTask);
+      
+      // Update reminder with new due date
+      await reminderService.setReminder({
+        id: updatedTask.id,
+        title: updatedTask.title,
+        dueTs: updatedTask.dueTs,
+        due_ts: updatedTask.dueTs,
+        urgent: updatedTask.urgent,
+        status: updatedTask.status,
+        pending: updatedTask.pending,
+        pinnedAt: updatedTask.pinnedAt,
+        pinned_at: updatedTask.pinnedAt,
+        completedTs: updatedTask.completedTs,
+        completed_ts: updatedTask.completedTs,
+        createdTs: updatedTask.createdTs,
+        created_ts: updatedTask.createdTs,
+        updatedTs: updatedTask.updatedTs,
+        updated_ts: updatedTask.updatedTs
       });
       
       await get().fetchTasks();
@@ -244,10 +272,15 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   pinTask: async (id: string) => {
     try {
-      await database.write(async () => {
+      const updatedTask = await database.write(async () => {
         const task = await database.collections.get<Task>('tasks').find(id);
         await task.togglePin();
+        return task;
       });
+      
+      // Sync to Supabase
+      await taskSyncService.syncTaskToSupabase(updatedTask);
+      
       await get().fetchTasks();
     } catch (error) {
       console.error('Failed to pin task:', error);
@@ -372,6 +405,11 @@ const useTaskStore = create<TaskStore>((set, get) => ({
         .query(Q.where('status', TaskStatus.Completed))
         .fetch();
       
+      // Cancel reminders for all completed tasks before deleting
+      for (const task of completedTasks) {
+        await reminderService.cancelReminder(task.id);
+      }
+      
       await database.write(async () => {
         for (const task of completedTasks) {
           await task.markAsDeleted();
@@ -387,6 +425,50 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     } catch (error) {
       set({ error: (error as Error).message });
       console.error('Failed to clear completed tasks:', error);
+    }
+  },
+  
+  cleanupOldDoneTasks: async () => {
+    try {
+      const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+      
+      // Find tasks completed more than 30 days ago
+      const oldCompletedTasks = await database.collections
+        .get<Task>('tasks')
+        .query(
+          Q.where('status', TaskStatus.Completed),
+          Q.where('completed_ts', Q.lt(thirtyDaysAgo))
+        )
+        .fetch();
+      
+      if (oldCompletedTasks.length === 0) {
+        console.log('No old completed tasks to cleanup');
+        return;
+      }
+      
+      console.log(`Cleaning up ${oldCompletedTasks.length} old completed tasks`);
+      
+      // Cancel reminders for old tasks before deleting
+      for (const task of oldCompletedTasks) {
+        await reminderService.cancelReminder(task.id);
+      }
+      
+      // Delete old tasks
+      await database.write(async () => {
+        for (const task of oldCompletedTasks) {
+          await task.markAsDeleted();
+        }
+      });
+      
+      // Sync deletions to Supabase
+      for (const task of oldCompletedTasks) {
+        await taskSyncService.deleteTaskFromSupabase(task.id);
+      }
+      
+      await get().fetchTasks();
+      console.log('Old completed tasks cleanup finished');
+    } catch (error) {
+      console.error('Failed to cleanup old done tasks:', error);
     }
   },
 }));

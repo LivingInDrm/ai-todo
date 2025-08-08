@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import { authService } from '../auth/authService';
 
 // 配置通知行为
 Notifications.setNotificationHandler({
@@ -54,7 +55,37 @@ class NotificationService {
       });
     }
     
+    // Get and upload push token to Supabase
+    await this.registerPushToken();
+    
     return true;
+  }
+  
+  // 获取并上传推送令牌到 Supabase
+  async registerPushToken(): Promise<void> {
+    try {
+      // Get the push token
+      const token = await Notifications.getExpoPushTokenAsync({
+        projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
+      });
+      
+      if (token && token.data) {
+        console.log('Push token obtained:', token.data);
+        
+        // Upload to Supabase profiles
+        const { error } = await authService.updateProfile({
+          push_token: token.data,
+        });
+        
+        if (error) {
+          console.error('Failed to upload push token:', error);
+        } else {
+          console.log('Push token uploaded successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get or upload push token:', error);
+    }
   }
 
   // 调度本地通知
