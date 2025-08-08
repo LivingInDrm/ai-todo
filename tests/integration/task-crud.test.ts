@@ -4,31 +4,27 @@
  */
 
 import { renderHook, act, waitFor } from '@testing-library/react-native';
-import { createTestDatabase } from '../../setup/mock/watermelondb';
 import { TaskStatus } from '../../lib/types';
-
-// Mock the database module at the top level
-jest.mock('../../db/database', () => {
-  const mockDatabase = require('../../setup/mock/watermelondb').createTestDatabase();
-  return {
-    __esModule: true,
-    default: mockDatabase,
-    Task: mockDatabase.collections.get('tasks').modelClass,
-  };
-});
-
-// Import after mocking
 import useTaskStore from '../../features/task/taskStore';
+import database from '../../db/database';
 
 describe('Task CRUD Operations', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     // Reset the store state
     useTaskStore.setState({ tasks: [], loading: false, error: null });
+    // Reset database
+    if (database && database.unsafeResetDatabase) {
+      await database.unsafeResetDatabase();
+    }
   });
 
   afterEach(async () => {
     jest.clearAllMocks();
+    // Reset database
+    if (database && database.unsafeResetDatabase) {
+      await database.unsafeResetDatabase();
+    }
   });
 
   describe('TC-Task-01: Normal task creation', () => {
@@ -50,10 +46,10 @@ describe('Task CRUD Operations', () => {
       expect(createdTask.createdTs).toBeDefined();
       expect(createdTask.updatedTs).toBeDefined();
       
-      // Verify it appears in the correct view
-      const focusTasks = result.current.getFocusTasks();
-      expect(focusTasks).toHaveLength(1);
-      expect(focusTasks[0].title).toBe('写日报');
+      // Verify it appears in the correct view (Backlog for tasks without dates)
+      const backlogTasks = result.current.getBacklogTasks();
+      expect(backlogTasks).toHaveLength(1);
+      expect(backlogTasks[0].title).toBe('写日报');
     });
 
     it('should complete within 100ms', async () => {
@@ -185,10 +181,10 @@ describe('Task CRUD Operations', () => {
         expect(task?.completedTs).toBeUndefined();
       });
 
-      // Verify back in Focus view
-      const focusTasks = result.current.getFocusTasks();
-      expect(focusTasks).toHaveLength(1);
-      expect(focusTasks[0].id).toBe(taskId);
+      // Verify back in Backlog view (no due date)
+      const backlogTasks = result.current.getBacklogTasks();
+      expect(backlogTasks).toHaveLength(1);
+      expect(backlogTasks[0].id).toBe(taskId);
     });
   });
 

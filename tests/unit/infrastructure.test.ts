@@ -93,7 +93,7 @@ describe('Test Infrastructure Verification', () => {
 
       const data = await response.json();
       expect(response.ok).toBe(true);
-      expect(data.text).toBe('Mock transcribed text from audio');
+      expect(data.text).toBe('明天九点写周报，下午三点开会');
     });
 
     it('should handle error scenarios', async () => {

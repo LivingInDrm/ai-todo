@@ -3,7 +3,7 @@ import schema from '../../db/schema';
 
 // Simple in-memory storage for test data
 class InMemoryStorage {
-  private data: Map<string, any[]> = new Map();
+  data: Map<string, any[]> = new Map();
   
   constructor() {
     this.data.set('tasks', []);
@@ -84,8 +84,10 @@ class MockTaskModel {
   completedTs?: number;
   createdTs: number;
   updatedTs: number;
+  storage: InMemoryStorage;
+  _collection: MockCollection;
   
-  constructor(data: any) {
+  constructor(data: any, storage?: InMemoryStorage, collection?: MockCollection) {
     this.id = data.id;
     this.title = data.title;
     this.dueTs = data.dueTs;
@@ -95,6 +97,8 @@ class MockTaskModel {
     this.completedTs = data.completedTs;
     this.createdTs = data.createdTs || Date.now();
     this.updatedTs = data.updatedTs || Date.now();
+    this.storage = storage!;
+    this._collection = collection!;
   }
   
   // Mock model methods
@@ -105,36 +109,75 @@ class MockTaskModel {
   async markAsCompleted(): Promise<void> {
     this.status = 1;
     this.completedTs = Date.now();
+    if (this.storage) {
+      this.storage.update('tasks', this.id, {
+        status: this.status,
+        completedTs: this.completedTs,
+        updatedTs: Date.now()
+      });
+    }
   }
   
   async markAsActive(): Promise<void> {
     this.status = 0;
     this.completedTs = undefined;
+    if (this.storage) {
+      this.storage.update('tasks', this.id, {
+        status: this.status,
+        completedTs: undefined,
+        updatedTs: Date.now()
+      });
+    }
   }
   
   async markAsDeleted(): Promise<void> {
-    // Mock deletion
+    if (this.storage) {
+      this.storage.delete('tasks', this.id);
+    }
   }
   
   async confirmDraft(): Promise<void> {
     this.pending = false;
+    if (this.storage) {
+      this.storage.update('tasks', this.id, {
+        pending: this.pending,
+        updatedTs: Date.now()
+      });
+    }
   }
   
   async postpone(newDueTs: number): Promise<void> {
     this.dueTs = newDueTs;
     this.updatedTs = Date.now();
+    if (this.storage) {
+      this.storage.update('tasks', this.id, {
+        dueTs: this.dueTs,
+        updatedTs: this.updatedTs
+      });
+    }
   }
   
   async update(fn: (task: any) => void): Promise<void> {
     fn(this);
     this.updatedTs = Date.now();
+    if (this.storage) {
+      this.storage.update('tasks', this.id, {
+        title: this.title,
+        dueTs: this.dueTs,
+        urgent: this.urgent,
+        status: this.status,
+        pending: this.pending,
+        completedTs: this.completedTs,
+        updatedTs: this.updatedTs
+      });
+    }
   }
 }
 
-// Mock Collection
+// Mock Collection  
 class MockCollection {
-  private storage: InMemoryStorage;
-  private tableName: string;
+  storage: InMemoryStorage;
+  tableName: string;
   
   constructor(storage: InMemoryStorage, tableName: string) {
     this.storage = storage;
@@ -142,11 +185,11 @@ class MockCollection {
   }
   
   async create(prepareCreate: (record: any) => void): Promise<MockTaskModel> {
-    const record = new MockTaskModel({});
+    const record = new MockTaskModel({}, this.storage, this);
     prepareCreate(record);
     
     const created = this.storage.create(this.tableName, {
-      id: record.id,
+      id: record.id || `mock-${this.tableName}-${Date.now()}-${Math.random()}`,
       title: record.title,
       dueTs: record.dueTs,
       urgent: record.urgent,
@@ -157,30 +200,39 @@ class MockCollection {
       updatedTs: record.updatedTs,
     });
     
-    return new MockTaskModel(created);
+    return new MockTaskModel(created, this.storage, this);
   }
   
   async find(id: string): Promise<MockTaskModel | null> {
     const record = this.storage.find(this.tableName, id);
-    return record ? new MockTaskModel(record) : null;
+    return record ? new MockTaskModel(record, this.storage, this) : null;
   }
   
   query(...conditions: any[]): {
     fetch: () => Promise<MockTaskModel[]>;
+    observe: () => { subscribe: (callback: (records: MockTaskModel[]) => void) => { unsubscribe: () => void } };
   } {
     return {
       fetch: async () => {
         const records = this.storage.query(this.tableName, conditions);
-        return records.map(r => new MockTaskModel(r));
-      }
+        return records.map(r => new MockTaskModel(r, this.storage, this));
+      },
+      observe: () => ({
+        subscribe: (callback: (records: MockTaskModel[]) => void) => {
+          // Immediately call with current data
+          const records = this.storage.query(this.tableName, conditions);
+          callback(records.map(r => new MockTaskModel(r, this.storage, this)));
+          return { unsubscribe: () => {} };
+        }
+      })
     };
   }
 }
 
 // Mock Database
 class MockDatabase {
-  private storage: InMemoryStorage;
-  private _collections: Map<string, MockCollection>;
+  storage: InMemoryStorage;
+  _collections: Map<string, MockCollection>;
   
   constructor() {
     this.storage = new InMemoryStorage();
@@ -195,7 +247,9 @@ class MockDatabase {
           this._collections.set(name, new MockCollection(this.storage, name));
         }
         return this._collections.get(name)!;
-      }
+      },
+      // Support for typed access
+      tasks: this._collections.get('tasks')
     };
   }
   
@@ -204,14 +258,34 @@ class MockDatabase {
     return await work();
   }
   
+  async batch(...operations: any[]): Promise<void> {
+    // Execute all operations
+    for (const op of operations) {
+      if (typeof op === 'function') {
+        await op();
+      }
+    }
+  }
+  
   async unsafeResetDatabase(): Promise<void> {
     this.storage.clear();
   }
 }
 
+// Singleton instance for consistent database across tests
+let databaseInstance: MockDatabase | null = null;
+
 // Export the fixed createTestDatabase function
 export const createTestDatabase = (): any => {
-  return new MockDatabase();
+  if (!databaseInstance) {
+    databaseInstance = new MockDatabase();
+  }
+  return databaseInstance;
+};
+
+// Reset the singleton instance
+export const resetDatabaseInstance = () => {
+  databaseInstance = null;
 };
 
 // Helper functions remain the same

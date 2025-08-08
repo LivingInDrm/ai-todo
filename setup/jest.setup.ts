@@ -1,6 +1,30 @@
 import '@testing-library/jest-native/extend-expect';
 import 'jest-extended';
 
+// Mock WatermelonDB SQLiteAdapter FIRST before any other imports
+jest.mock('@nozbe/watermelondb/adapters/sqlite', () => {
+  const mockAdapter = jest.fn().mockImplementation(() => ({
+    schema: {},
+    migrations: {},
+    jsi: false,
+    find: jest.fn(),
+    query: jest.fn(),
+    batch: jest.fn(),
+    getDeletedRecords: jest.fn(),
+    destroyDeletedRecords: jest.fn(),
+    unsafeResetDatabase: jest.fn(),
+    getLocal: jest.fn(),
+    setLocal: jest.fn(),
+    removeLocal: jest.fn(),
+  }));
+  
+  return {
+    __esModule: true,
+    default: mockAdapter,
+    SQLiteAdapter: mockAdapter
+  };
+});
+
 // Mock React Native Reanimated
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
@@ -87,10 +111,38 @@ jest.mock('expo-file-system', () => ({
 
 // Mock expo-notifications
 jest.mock('expo-notifications', () => ({
-  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ 
+    status: 'granted',
+    expires: 'never',
+    granted: true,
+    canAskAgain: true,
+    ios: {
+      status: 'granted',
+      allowsSound: true,
+      allowsAlert: true,
+      allowsBadge: true,
+    }
+  })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ 
+    status: 'granted',
+    expires: 'never',
+    granted: true,
+    canAskAgain: true,
+    ios: {
+      status: 'granted',
+      allowsSound: true,
+      allowsAlert: true,
+      allowsBadge: true,
+    }
+  })),
   scheduleNotificationAsync: jest.fn(() => Promise.resolve('mock-notification-id')),
   cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  cancelAllScheduledNotificationsAsync: jest.fn(() => Promise.resolve()),
+  getAllScheduledNotificationsAsync: jest.fn(() => Promise.resolve([])),
   setNotificationHandler: jest.fn(),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  removeNotificationSubscription: jest.fn(),
 }));
 
 // Mock expo-secure-store
@@ -122,11 +174,59 @@ jest.mock('@react-native-community/datetimepicker', () => {
   };
 });
 
+// Mock the database module BEFORE any imports that might use it
+jest.mock('../db/database', () => {
+  const { createTestDatabase } = require('./mock/watermelondb');
+  const mockDatabase = createTestDatabase();
+  
+  // Mock Task model class
+  class MockTask {
+    static table = 'tasks';
+    
+    constructor(database: any, raw: any) {
+      Object.assign(this, raw);
+    }
+    
+    async update(fn: (task: any) => void): Promise<void> {
+      fn(this);
+      // Update in mock storage
+      const collection = mockDatabase.collections.get('tasks');
+      await collection.storage.update('tasks', this.id, this);
+    }
+    
+    async markAsDeleted(): Promise<void> {
+      const collection = mockDatabase.collections.get('tasks');
+      await collection.storage.delete('tasks', this.id);
+    }
+  }
+  
+  return {
+    __esModule: true,
+    default: mockDatabase,
+    Task: MockTask
+  };
+});
+
 // MSW Setup
 import { server } from './mock/server';
+import { resetAllStores, resetTestDatabase } from './test-helpers';
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => server.resetHandlers());
+
+afterEach(async () => {
+  // Reset MSW handlers
+  server.resetHandlers();
+  
+  // Reset all stores to initial state
+  resetAllStores();
+  
+  // Clear the test database
+  await resetTestDatabase();
+  
+  // Clear all mocks
+  jest.clearAllMocks();
+});
+
 afterAll(() => server.close());
 
 // Global test utilities

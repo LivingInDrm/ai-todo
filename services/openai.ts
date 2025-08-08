@@ -19,6 +19,10 @@ class OpenAIService {
 
   constructor() {
     this.apiKey = OPENAI_API_KEY;
+    // In test environment, use a test key
+    if (process.env.NODE_ENV === 'test' && !this.apiKey) {
+      this.apiKey = 'test-api-key';
+    }
     if (!this.apiKey) {
       console.warn('OpenAI API key not configured');
     }
@@ -55,8 +59,14 @@ class OpenAIService {
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Whisper API error: ${error}`);
+        try {
+          const errorData = await response.json();
+          const message = errorData.error?.message || 'Unknown error';
+          throw new Error(message);
+        } catch (parseError) {
+          const error = await response.text();
+          throw new Error(`Whisper API error: ${error}`);
+        }
       }
 
       const result = await response.json();

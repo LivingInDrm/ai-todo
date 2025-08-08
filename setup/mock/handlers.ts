@@ -20,9 +20,23 @@ export const handlers = [
                 {
                   action: 'add_todo',
                   payload: {
-                    title: 'Mock Task from GPT',
-                    due_ts: null,
-                    note: ''
+                    title: '写周报',
+                    due_ts: Date.now() + 86400000, // Tomorrow 9am
+                    urgent: false
+                  }
+                },
+                {
+                  action: 'add_todo',
+                  payload: {
+                    title: '开会',
+                    due_ts: Date.now() + 86400000 + 21600000, // Tomorrow 3pm
+                    urgent: false
+                  }
+                },
+                {
+                  action: 'complete_todo',
+                  payload: {
+                    title: 'Finish report'
                   }
                 }
               ]
@@ -42,7 +56,7 @@ export const handlers = [
   // OpenAI Whisper Transcription
   http.post('https://api.openai.com/v1/audio/transcriptions', () => {
     return HttpResponse.json({
-      text: 'Mock transcribed text from audio'
+      text: '明天九点写周报，下午三点开会'
     });
   }),
 
@@ -140,9 +154,9 @@ export const errorHandlers = {
     return HttpResponse.json(
       {
         error: {
-          message: 'Invalid audio format',
+          message: 'No text recognized from audio',
           type: 'invalid_request_error',
-          code: 'invalid_audio'
+          code: 'no_speech_detected'
         }
       },
       { status: 400 }

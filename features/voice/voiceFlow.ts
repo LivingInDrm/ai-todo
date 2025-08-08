@@ -1,6 +1,7 @@
 import openai, { TaskOperation } from '../../services/openai';
 import { draftStore } from '../draft/draftStore';
 import { taskStore } from '../task/taskStore';
+import { TaskStatus } from '../../lib/types';
 
 class VoiceFlow {
   private isProcessing = false;
@@ -48,9 +49,9 @@ class VoiceFlow {
           const draftTask = {
             title: operation.payload.title,
             due_ts: operation.payload.due_ts || null,
-            urgent: operation.payload.urgent ? 1 : 0,
-            status: 0,
-            pending: 1, // Mark as draft
+            urgent: operation.payload.urgent || false,
+            status: TaskStatus.Active,
+            pending: true, // Mark as draft
             action: 'add' as const,
           };
           draftTasks.push(draftTask);
@@ -68,9 +69,9 @@ class VoiceFlow {
                   ? operation.payload.due_ts 
                   : existingTask.dueTs,
                 urgent: operation.payload.urgent !== undefined 
-                  ? (operation.payload.urgent ? 1 : 0)
+                  ? operation.payload.urgent
                   : existingTask.urgent,
-                pending: 1,
+                pending: true,
                 action: 'update' as const,
               };
               draftTasks.push(updateDraft);
@@ -87,8 +88,8 @@ class VoiceFlow {
           if (taskToComplete) {
             const completeDraft = {
               ...taskToComplete,
-              status: 1,
-              pending: 1,
+              status: TaskStatus.Completed,
+              pending: true,
               action: 'complete' as const,
             };
             draftTasks.push(completeDraft);
@@ -104,7 +105,7 @@ class VoiceFlow {
           if (taskToDelete) {
             const deleteDraft = {
               ...taskToDelete,
-              pending: 1,
+              pending: true,
               action: 'delete' as const,
             };
             draftTasks.push(deleteDraft);

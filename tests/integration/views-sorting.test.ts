@@ -51,15 +51,14 @@ describe('Three-View System and Sorting', () => {
         expect(result.current.tasks).toHaveLength(4);
       });
 
-      // Get Focus tasks (should include all within 7 days)
+      // Get Focus tasks (should include only tasks with dates within 7 days)
       const focusTasks = result.current.getFocusTasks();
       
-      // Verify sorting order
-      expect(focusTasks).toHaveLength(4);
+      // Verify sorting order (no date tasks are in Backlog, not Focus)
+      expect(focusTasks).toHaveLength(3);
       expect(focusTasks[0].title).toBe('Task Tomorrow');
       expect(focusTasks[1].title).toBe('Task Day After');
       expect(focusTasks[2].title).toBe('Task Next Week');
-      expect(focusTasks[3].title).toBe('Task No Date'); // No date tasks come last
     });
 
     it('should include overdue tasks in Focus view', async () => {
@@ -98,13 +97,13 @@ describe('Three-View System and Sorting', () => {
         expect(result.current.tasks).toHaveLength(1);
       });
 
-      // Verify task is in Backlog
+      // Verify task is in Backlog (no date tasks go to Backlog)
       const backlogTasks = result.current.getBacklogTasks();
       const focusTasks = result.current.getFocusTasks();
       
       expect(backlogTasks).toHaveLength(1);
       expect(backlogTasks[0].title).toBe('读书');
-      expect(focusTasks).toHaveLength(1); // Also appears in Focus if no date
+      expect(focusTasks).toHaveLength(0); // No date tasks don't appear in Focus
     });
 
     it('should sort Backlog by created_ts descending (newest first)', async () => {

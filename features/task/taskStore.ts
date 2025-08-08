@@ -60,10 +60,17 @@ const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   createTask: async (title: string, dueTs?: number, urgent = false) => {
+    // Validate title is not empty
+    if (!title || title.trim() === '') {
+      const error = new Error('Task title cannot be empty');
+      set({ error: error.message });
+      throw error;
+    }
+    
     try {
       const newTask = await database.write(async () => {
         return await database.collections.get<Task>('tasks').create(task => {
-          task.title = title;
+          task.title = title.trim();
           task.dueTs = dueTs;
           task.urgent = urgent;
           task.status = TaskStatus.Active;
@@ -165,7 +172,7 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     return tasks
       .filter(task => 
         task.status === TaskStatus.Active && 
-        (!task.dueTs || task.dueTs <= weekFromNow)
+        task.dueTs !== undefined && task.dueTs <= weekFromNow
       )
       .sort((a, b) => {
         if (!a.dueTs && !b.dueTs) return 0;

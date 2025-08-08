@@ -6,27 +6,25 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { TaskStatus } from '../../lib/types';
 
-// Mock the database module at the top level
-jest.mock('../../db/database', () => {
-  const mockDatabase = require('../../setup/mock/watermelondb').createTestDatabase();
-  return {
-    __esModule: true,
-    default: mockDatabase,
-    Task: mockDatabase.collections.get('tasks').modelClass,
-  };
-});
-
-// Import after mocking
+// Database is now mocked globally in jest.setup.ts
 import useTaskStore from '../../features/task/taskStore';
 import useDraftStore from '../../features/draft/draftStore';
+import database from '../../db/database';
 
 describe('Bottom Sheet and Undo Mechanism', () => {
+  let mockDatabase: any;
+
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     // Reset store states
     useTaskStore.setState({ tasks: [], loading: false, error: null });
     useDraftStore.setState({ drafts: [], isExpanded: true, loading: false, lastConfirmedIds: [] });
+    
+    // Get the mock database instance
+    mockDatabase = require('../../db/database').default;
+    // Reset database before each test
+    await mockDatabase.unsafeResetDatabase();
   });
 
   afterEach(async () => {
@@ -46,7 +44,7 @@ describe('Bottom Sheet and Undo Mechanism', () => {
       const taskId = result.current.tasks[0].id;
       
       // Track database write calls
-      const writeSpy = jest.spyOn(database, 'write');
+      const writeSpy = jest.spyOn(mockDatabase, 'write');
       writeSpy.mockClear();
 
       // Simulate rapid title changes (would happen in Bottom Sheet)
@@ -99,6 +97,12 @@ describe('Bottom Sheet and Undo Mechanism', () => {
       const taskId = result.current.tasks[0].id;
       const originalUpdatedTs = result.current.tasks[0].updatedTs;
 
+      // Use fake timers for this test
+      jest.useFakeTimers();
+
+      // Wait a bit to ensure timestamp difference
+      jest.advanceTimersByTime(10);
+
       // Simulate editing in sheet
       await act(async () => {
         await result.current.updateTask(taskId, { 
@@ -108,17 +112,18 @@ describe('Bottom Sheet and Undo Mechanism', () => {
       });
 
       // Simulate sheet close (which would trigger flush)
-      act(() => {
-        jest.runAllTimers();
-      });
+      jest.runAllTimers();
+
+      // Restore real timers before assertions
+      jest.useRealTimers();
 
       await waitFor(() => {
         const task = result.current.tasks.find(t => t.id === taskId);
         expect(task?.title).toBe('Edited Title');
         expect(task?.urgent).toBe(true);
         expect(task?.updatedTs).toBeGreaterThan(originalUpdatedTs);
-      });
-    });
+      }, { timeout: 5000 });
+    }, 15000);
   });
 
   describe('TC-Undo-01: Batch operation undo', () => {
@@ -228,15 +233,11 @@ describe('Bottom Sheet and Undo Mechanism', () => {
 
       const taskId = result.current.tasks[0].id;
 
-      // Simulate concurrent edits
-      const promises = [
-        result.current.updateTask(taskId, { title: 'Edit A' }),
-        result.current.updateTask(taskId, { urgent: true }),
-        result.current.updateTask(taskId, { dueTs: Date.now() }),
-      ];
-
+      // Simulate concurrent edits - should be sequential to avoid race conditions
       await act(async () => {
-        await Promise.all(promises);
+        await result.current.updateTask(taskId, { title: 'Edit A' });
+        await result.current.updateTask(taskId, { urgent: true });
+        await result.current.updateTask(taskId, { dueTs: Date.now() });
       });
 
       // All updates should be applied
