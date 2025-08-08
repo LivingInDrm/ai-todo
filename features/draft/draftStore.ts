@@ -3,6 +3,7 @@ import { Q } from '@nozbe/watermelondb';
 import database, { Task } from '../../db/database';
 import { DraftTask, TaskData, TaskStatus, VoiceOperation } from '../../lib/types';
 import useTaskStore from '../task/taskStore';
+import reminderService from '../notify/reminderService';
 
 interface UndoOperation {
   type: 'add' | 'update' | 'complete' | 'delete';
@@ -208,6 +209,27 @@ const useDraftStore = create<DraftStore>((set, get) => ({
           } else if (draft.operation === 'delete') {
             // Handle delete operation
             await task.markAsDeleted();
+          }
+          
+          // Set reminder for new active tasks with due dates
+          if (draft.operation === 'add' && task.dueTs && task.status === TaskStatus.Active) {
+            await reminderService.setReminder({
+              id: task.id,
+              title: task.title,
+              dueTs: task.dueTs,
+              due_ts: task.dueTs,
+              urgent: task.urgent,
+              status: task.status,
+              pending: false,
+              pinnedAt: task.pinnedAt,
+              pinned_at: task.pinnedAt,
+              completedTs: task.completedTs,
+              completed_ts: task.completedTs,
+              createdTs: task.createdTs,
+              created_ts: task.createdTs,
+              updatedTs: task.updatedTs,
+              updated_ts: task.updatedTs
+            });
           }
         }
       });
