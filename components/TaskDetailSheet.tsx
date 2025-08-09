@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -32,12 +33,14 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
     const [dueDate, setDueDate] = useState<Date | undefined>();
     const [isUrgent, setIsUrgent] = useState(false);
     const [currentTask, setCurrentTask] = useState<TaskData | undefined>();
+    const [isNewTask, setIsNewTask] = useState(false);
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const isDeleting = useRef(false);
 
     // Create debounced auto-save function (400ms delay)
     const debouncedAutoSave = useCallback(
       debounce((taskTitle: string, taskDueDate: Date | undefined, taskUrgent: boolean, task?: TaskData) => {
+        // Only auto-save for existing tasks, not new ones
         if (!taskTitle.trim() || !task) return;
         
         const taskData: Partial<TaskData> = {
@@ -54,10 +57,15 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
 
     useImperativeHandle(ref, () => ({
       present: (task?: TaskData) => {
+        console.log('TaskDetailSheet present called with task:', task);
+        // Reset state for new or existing task
         setCurrentTask(task);
+        setIsNewTask(!task); // Mark as new task if no task provided
         setTitle(task?.title || '');
         setDueDate(task?.dueTs ? new Date(task.dueTs) : undefined);
         setIsUrgent(task?.urgent || false);
+        
+        // Call present directly
         bottomSheetRef.current?.present();
       },
       dismiss: () => {
@@ -71,16 +79,16 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
       },
     }));
 
-    // Auto-save when title changes
+    // Auto-save when title changes (only for existing tasks)
     useEffect(() => {
-      if (currentTask && title.trim()) {
+      if (currentTask && !isNewTask && title.trim()) {
         debouncedAutoSave(title, dueDate, isUrgent, currentTask);
       }
-    }, [title, currentTask, dueDate, isUrgent, debouncedAutoSave]);
+    }, [title, currentTask, dueDate, isUrgent, debouncedAutoSave, isNewTask]);
 
-    // Auto-save when date or urgent changes
+    // Auto-save when date or urgent changes (only for existing tasks)
     useEffect(() => {
-      if (currentTask && title.trim()) {
+      if (currentTask && !isNewTask && title.trim()) {
         debouncedAutoSave(title, dueDate, isUrgent, currentTask);
       }
     }, [dueDate, isUrgent]);
@@ -96,11 +104,17 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
         urgent: isUrgent,
       };
 
-      if (currentTask) {
+      // Include ID only for existing tasks
+      if (currentTask && !isNewTask) {
         taskData.id = currentTask.id;
       }
 
       onSave(taskData);
+      
+      // Reset new task flag after saving
+      if (isNewTask) {
+        setIsNewTask(false);
+      }
     };
 
     const handleClose = () => {
@@ -128,75 +142,82 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        snapPoints={['50%', '75%']}
+        snapPoints={[400, 600]}  // Use fixed pixel values instead of percentages
         onClose={handleClose}
         enablePanDownToClose={true}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.container}
+          style={styles.keyboardAvoidingView}
         >
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => bottomSheetRef.current?.dismiss()}
-              style={styles.closeButton}
-            >
-              <Text style={styles.closeIcon}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          <ScrollView 
+            style={styles.container}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.header}>
+              <TouchableOpacity
+                onPress={() => bottomSheetRef.current?.dismiss()}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
 
-          <TextInput
-            style={styles.titleInput}
-            placeholder="添加任务..."
-            value={title}
-            onChangeText={setTitle}
-            multiline
-            numberOfLines={2}
-            autoFocus
-            returnKeyType="done"
-            blurOnSubmit={true}
-          />
-
-          <View style={styles.controls}>
-            <DateTimeButton
-              value={dueDate}
-              onChange={setDueDate}
-              mode="datetime"
+            <TextInput
+              style={styles.titleInput}
+              placeholder="添加任务..."
+              value={title}
+              onChangeText={setTitle}
+              multiline
+              numberOfLines={2}
+              autoFocus
+              returnKeyType="done"
+              blurOnSubmit={true}
             />
 
-            <TouchableOpacity
-              style={[
-                styles.urgentButton,
-                isUrgent && styles.urgentButtonActive,
-              ]}
-              onPress={toggleUrgent}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.urgentIcon}>❗️</Text>
-              <Text
-                style={[
-                  styles.urgentText,
-                  isUrgent && styles.urgentTextActive,
-                ]}
-              >
-                {isUrgent ? '紧急' : '标记紧急'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+            <View style={styles.controls}>
+              <DateTimeButton
+                value={dueDate}
+                onChange={setDueDate}
+                mode="datetime"
+              />
 
-          {currentTask && onDelete && (
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => {
-                isDeleting.current = true;
-                onDelete(currentTask.id);
-                bottomSheetRef.current?.dismiss();
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.deleteText}>删除任务</Text>
-            </TouchableOpacity>
-          )}
+              <TouchableOpacity
+                style={[
+                  styles.urgentButton,
+                  isUrgent && styles.urgentButtonActive,
+                ]}
+                onPress={toggleUrgent}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.urgentIcon}>❗️</Text>
+                <Text
+                  style={[
+                    styles.urgentText,
+                    isUrgent && styles.urgentTextActive,
+                  ]}
+                >
+                  {isUrgent ? '紧急' : '标记紧急'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {currentTask && !isNewTask && onDelete && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => {
+                  isDeleting.current = true;
+                  onDelete(currentTask.id);
+                  bottomSheetRef.current?.dismiss();
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.deleteText}>删除任务</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
         </KeyboardAvoidingView>
       </BottomSheet>
     );
@@ -204,9 +225,15 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
 );
 
 const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   container: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
@@ -234,7 +261,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   controls: {
-    gap: 12,
+    marginTop: 10,
   },
   urgentButton: {
     flexDirection: 'row',

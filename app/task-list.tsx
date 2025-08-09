@@ -149,6 +149,8 @@ export default function TaskListScreen() {
   };
 
   const handleNewTask = () => {
+    console.log('handleNewTask called');
+    console.log('taskDetailRef.current:', taskDetailRef.current);
     taskDetailRef.current?.present();
   };
 

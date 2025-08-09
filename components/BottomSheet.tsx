@@ -23,7 +23,7 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
   (
     {
       children,
-      snapPoints = ['50%', '90%'],
+      snapPoints = [400, 600],  // Use fixed pixel values as default
       onClose,
       enablePanDownToClose = true,
       title,
@@ -60,6 +60,13 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
         onChange={handleSheetChanges}
         handleIndicatorStyle={styles.handleIndicator}
         backgroundStyle={styles.background}
+        android_keyboardInputMode="adjustResize"  // For Android keyboard handling
+        enableDynamicSizing={false}  // Disable dynamic sizing
+        keyboardBehavior="interactive"  // Better keyboard handling for iOS
+        keyboardBlurBehavior="restore"  // Restore position when keyboard dismisses
+        detached={false}  // Ensure it's attached to the screen
+        bottomInset={0}  // Reset bottom inset
+        style={styles.modal}  // Add explicit styling
       >
         <View style={styles.container}>
           {title && (
@@ -87,6 +94,13 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
 export const BottomSheetProvider = BottomSheetModalProvider;
 
 const styles = StyleSheet.create({
+  modal: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+  },
   background: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,

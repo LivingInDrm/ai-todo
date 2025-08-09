@@ -41,7 +41,7 @@ const MoreActionSheet = forwardRef<MoreActionSheetRef, MoreActionSheetProps>(
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        snapPoints={['40%']}
+        snapPoints={[350]}  // Use fixed pixel value
         enablePanDownToClose={true}
       >
         <View style={styles.container}>

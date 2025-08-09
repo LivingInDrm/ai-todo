@@ -201,13 +201,11 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
   pickerContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#fff',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E5E5EA',
+    marginTop: 10,
+    marginHorizontal: -20,
   },
   pickerHeader: {
     flexDirection: 'row',
