@@ -7,6 +7,7 @@ export interface TaskData {
   pending: boolean;
   completedTs?: number;
   pinnedAt?: number;
+  remoteId?: string; // Supabase ID for sync
   createdTs: number;
   updatedTs: number;
   // Legacy field names for compatibility with Supabase (snake_case)

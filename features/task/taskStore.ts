@@ -14,6 +14,7 @@ interface TaskStore {
   // Actions
   fetchTasks: () => Promise<void>;
   createTask: (taskData: Partial<TaskData> | string, skipSync?: boolean) => Promise<Task>;
+  createTaskWithRemoteId: (taskData: Partial<TaskData>, skipSync?: boolean) => Promise<Task>;
   updateTask: (id: string, updates: Partial<TaskData>, skipSync?: boolean) => Promise<void>;
   deleteTask: (id: string, skipSync?: boolean) => Promise<void>;
   toggleTaskStatus: (id: string) => Promise<void>;
@@ -54,6 +55,7 @@ const useTaskStore = create<TaskStore>((set, get) => ({
         pending: task.pending,
         completedTs: task.completedTs,
         pinnedAt: task.pinnedAt,
+        remoteId: task.remoteId,
         createdTs: task.createdTs,
         updatedTs: task.updatedTs,
       }));
@@ -80,14 +82,14 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     try {
       const newTask = await database.write(async () => {
         return await database.collections.get<Task>('tasks').create(task => {
-          // If an ID is provided (e.g., from Supabase sync), handle it separately
-          // WatermelonDB doesn't support custom IDs in create method
+          // WatermelonDB generates its own IDs
           task.title = data.title!.trim();
           task.dueTs = data.dueTs;
           task.urgent = data.urgent || false;
           task.status = data.status ?? TaskStatus.Active;
           task.pending = data.pending ?? false;
           task.pinnedAt = data.pinnedAt || 0;
+          task.remoteId = data.remoteId; // Store remote_id if provided
           task.completedTs = data.completedTs;
           task.createdTs = data.createdTs || Date.now();
           task.updatedTs = data.updatedTs || Date.now();
@@ -99,6 +101,60 @@ const useTaskStore = create<TaskStore>((set, get) => ({
         await taskSyncService.syncTaskToSupabase(newTask);
       }
       
+      // Set reminder if task has due date and is active
+      if (newTask.dueTs && newTask.status === TaskStatus.Active && !newTask.pending) {
+        await reminderService.setReminder({
+          id: newTask.id,
+          title: newTask.title,
+          dueTs: newTask.dueTs,
+          due_ts: newTask.dueTs,
+          urgent: newTask.urgent,
+          status: newTask.status,
+          pending: newTask.pending,
+          pinnedAt: newTask.pinnedAt,
+          pinned_at: newTask.pinnedAt,
+          completedTs: newTask.completedTs,
+          completed_ts: newTask.completedTs,
+          createdTs: newTask.createdTs,
+          created_ts: newTask.createdTs,
+          updatedTs: newTask.updatedTs,
+          updated_ts: newTask.updatedTs
+        });
+      }
+      
+      await get().fetchTasks();
+      return newTask;
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
+  createTaskWithRemoteId: async (taskData: Partial<TaskData>, skipSync = false) => {
+    // Special method for creating tasks from Supabase sync with remote_id
+    if (!taskData.title || taskData.title.trim() === '') {
+      const error = new Error('Task title cannot be empty');
+      set({ error: error.message });
+      throw error;
+    }
+    
+    try {
+      const newTask = await database.write(async () => {
+        return await database.collections.get<Task>('tasks').create(task => {
+          task.title = taskData.title!.trim();
+          task.dueTs = taskData.dueTs;
+          task.urgent = taskData.urgent || false;
+          task.status = taskData.status ?? TaskStatus.Active;
+          task.pending = taskData.pending ?? false;
+          task.pinnedAt = taskData.pinnedAt || 0;
+          task.remoteId = taskData.remoteId; // Store the Supabase ID
+          task.completedTs = taskData.completedTs;
+          task.createdTs = taskData.createdTs || Date.now();
+          task.updatedTs = taskData.updatedTs || Date.now();
+        });
+      });
+      
+      // Don't sync back to Supabase since this came from there
       // Set reminder if task has due date and is active
       if (newTask.dueTs && newTask.status === TaskStatus.Active && !newTask.pending) {
         await reminderService.setReminder({
@@ -140,6 +196,7 @@ const useTaskStore = create<TaskStore>((set, get) => ({
           if (updates.completedTs !== undefined) t.completedTs = updates.completedTs;
           if (updates.pending !== undefined) t.pending = updates.pending;
           if (updates.pinnedAt !== undefined) t.pinnedAt = updates.pinnedAt;
+          if (updates.remoteId !== undefined) t.remoteId = updates.remoteId;
           t.updatedTs = updates.updatedTs || Date.now();
         });
         return task;
@@ -180,14 +237,17 @@ const useTaskStore = create<TaskStore>((set, get) => ({
       // Cancel reminder before deleting task
       await reminderService.cancelReminder(id);
       
+      // Get task to fetch remoteId before deletion
+      const task = await database.collections.get<Task>('tasks').find(id);
+      const remoteId = task.remoteId;
+      
       await database.write(async () => {
-        const task = await database.collections.get<Task>('tasks').find(id);
         await task.markAsDeleted();
       });
       
       // Sync deletion to Supabase if not skipped
-      if (!skipSync) {
-        await taskSyncService.deleteTaskFromSupabase(id);
+      if (!skipSync && remoteId) {
+        await taskSyncService.deleteTaskFromSupabase(id, remoteId);
       }
       
       await get().fetchTasks();

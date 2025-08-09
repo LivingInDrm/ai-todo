@@ -125,7 +125,8 @@ class TaskSyncService {
       
       // Process each remote task
       for (const remoteTask of remoteTasks) {
-        const localTask = localTasks.find(t => t.id === remoteTask.id);
+        // Find local task by remote_id mapping
+        const localTask = localTasks.find(t => t.remoteId === remoteTask.id);
         
         if (!localTask) {
           // Task exists in remote but not local - check if it's in delete queue
@@ -136,7 +137,7 @@ class TaskSyncService {
             continue;
           }
           
-          // Create task locally
+          // Create task locally with remote_id mapping
           await this.syncTaskToLocal(remoteTask);
         } else if (remoteTask.updated_ts > localTask.updatedTs) {
           // Remote task is newer - update local
@@ -186,7 +187,7 @@ class TaskSyncService {
     
     // Convert Supabase task to local Task format
     const localTask: Partial<TaskData> = {
-      id: supabaseTask.id,
+      remoteId: supabaseTask.id, // Store Supabase ID as remote_id
       title: supabaseTask.title,
       dueTs: supabaseTask.due_ts || undefined,
       urgent: supabaseTask.urgent === 1,
@@ -198,17 +199,17 @@ class TaskSyncService {
       updatedTs: supabaseTask.updated_ts,
     };
     
-    // Check if task exists locally
-    const existingTask = taskStore.tasks.find(t => t.id === supabaseTask.id);
+    // Check if task exists locally by remote_id
+    const existingTask = taskStore.tasks.find(t => t.remoteId === supabaseTask.id);
     
     if (existingTask) {
       // Update existing task (last-write-wins based on updated_ts)
       if (supabaseTask.updated_ts > existingTask.updatedTs) {
-        await taskStore.updateTask(supabaseTask.id, localTask, true); // Don't sync back to Supabase
+        await taskStore.updateTask(existingTask.id, localTask, true); // Use local ID for update
       }
     } else {
-      // Create new task locally
-      await taskStore.createTask(localTask, true); // Don't sync back to Supabase
+      // Create new task locally with remote_id mapping
+      await taskStore.createTaskWithRemoteId(localTask, true);
     }
   }
   
@@ -224,7 +225,7 @@ class TaskSyncService {
       const supabaseTask = this.convertToSupabaseTask(task, userId);
       await this.addToOfflineQueue({
         op: 'upsert',
-        taskId: task.id,
+        taskId: task.remoteId || task.id,
         task: supabaseTask
       });
       return;
@@ -237,24 +238,31 @@ class TaskSyncService {
     const supabaseTask = this.convertToSupabaseTask(task, userId);
     
     try {
-      const { error } = await supabase!
+      const { data, error } = await supabase!
         .from(TABLES.TASKS)
         .upsert(supabaseTask, {
           onConflict: 'id',
-        });
+        })
+        .select()
+        .single();
       
       if (error) {
         console.error('Error syncing task to Supabase:', error);
         // Add to offline queue for retry
         await this.addToOfflineQueue({
           op: 'upsert',
-          taskId: task.id,
+          taskId: task.remoteId || task.id,
           task: supabaseTask
         });
-      } else {
+      } else if (data && !task.remoteId) {
+        // Update local task with remote_id if it was a new task
+        const taskStore = useTaskStore.getState();
+        await taskStore.updateTask(task.id, { remoteId: data.id }, true);
+        
         // Remove from queue if it was there
-        if (this.syncQueue.has(task.id)) {
-          this.syncQueue.delete(task.id);
+        const queueKey = task.remoteId || task.id;
+        if (this.syncQueue.has(queueKey)) {
+          this.syncQueue.delete(queueKey);
           await this.saveOfflineQueue();
         }
       }
@@ -263,7 +271,7 @@ class TaskSyncService {
       // Add to offline queue for retry
       await this.addToOfflineQueue({
         op: 'upsert',
-        taskId: task.id,
+        taskId: task.remoteId || task.id,
         task: supabaseTask
       });
     }
@@ -274,7 +282,7 @@ class TaskSyncService {
    */
   private convertToSupabaseTask(task: any, userId: string): SupabaseTask {
     return {
-      id: task.id,
+      id: task.remoteId || task.id, // Use remote_id if available, otherwise local id
       user_id: userId,
       title: task.title,
       due_ts: task.dueTs || task.due_ts || null,
@@ -291,12 +299,14 @@ class TaskSyncService {
   /**
    * Delete a task from Supabase
    */
-  async deleteTaskFromSupabase(taskId: string): Promise<void> {
+  async deleteTaskFromSupabase(taskId: string, remoteId?: string): Promise<void> {
+    const deleteId = remoteId || taskId; // Use remote_id if provided
+    
     if (!isSupabaseConfigured()) {
       // Add delete operation to offline queue
       await this.addToOfflineQueue({
         op: 'delete',
-        taskId: taskId
+        taskId: deleteId
       });
       return;
     }
@@ -310,7 +320,7 @@ class TaskSyncService {
       const { error } = await supabase!
         .from(TABLES.TASKS)
         .delete()
-        .eq('id', taskId)
+        .eq('id', deleteId)
         .eq('user_id', user.id);
       
       if (error) {
@@ -318,12 +328,12 @@ class TaskSyncService {
         // Add to offline queue for retry
         await this.addToOfflineQueue({
           op: 'delete',
-          taskId: taskId
+          taskId: deleteId
         });
       } else {
         // Remove from queue if it was there
-        if (this.syncQueue.has(taskId)) {
-          this.syncQueue.delete(taskId);
+        if (this.syncQueue.has(deleteId)) {
+          this.syncQueue.delete(deleteId);
           await this.saveOfflineQueue();
         }
       }
@@ -332,7 +342,7 @@ class TaskSyncService {
       // Add to offline queue for retry
       await this.addToOfflineQueue({
         op: 'delete',
-        taskId: taskId
+        taskId: deleteId
       });
     }
   }

@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export default appSchema({
-  version: 2,
+  version: 3,
   tables: [
     tableSchema({
       name: 'tasks',
@@ -15,6 +15,7 @@ export default appSchema({
         { name: 'created_ts', type: 'number', isOptional: false },
         { name: 'updated_ts', type: 'number', isOptional: false },
         { name: 'pinned_at', type: 'number', isOptional: true }, // Timestamp when pinned
+        { name: 'remote_id', type: 'string', isOptional: true, isIndexed: true }, // Supabase ID
       ],
     }),
   ],

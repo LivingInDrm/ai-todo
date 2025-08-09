@@ -11,6 +11,7 @@ export default class Task extends Model {
   @field('pending') pending!: boolean; // false: normal, true: draft
   @field('completed_ts') completedTs?: number;
   @field('pinned_at') pinnedAt?: number;
+  @field('remote_id') remoteId?: string; // Supabase ID for sync
   @readonly @date('created_ts') createdTs!: number;
   @date('updated_ts') updatedTs!: number;
 

@@ -14,5 +14,17 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      // Version 2 -> 3: Add remote_id field for Supabase sync
+      toVersion: 3,
+      steps: [
+        addColumns({
+          table: 'tasks',
+          columns: [
+            { name: 'remote_id', type: 'string', isOptional: true, isIndexed: true },
+          ],
+        }),
+      ],
+    },
   ],
 });
