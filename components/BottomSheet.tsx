@@ -68,8 +68,8 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
         bottomInset={0}  // Reset bottom inset
         style={styles.modal}  // Add explicit styling
       >
-        <View style={styles.container}>
-          {title && (
+        {title ? (
+          <View style={styles.container}>
             <View style={styles.header}>
               <Text style={styles.title}>{title}</Text>
               <TouchableOpacity
@@ -83,9 +83,11 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
                 <Text style={styles.closeIcon}>✕</Text>
               </TouchableOpacity>
             </View>
-          )}
-          <View style={styles.content}>{children}</View>
-        </View>
+            <View style={styles.content}>{children}</View>
+          </View>
+        ) : (
+          children
+        )}
       </BottomSheetModal>
     );
   }
@@ -141,8 +143,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
   },
 });
 

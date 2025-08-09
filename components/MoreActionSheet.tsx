@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import BottomSheet from './BottomSheet';
 
 interface MoreActionSheetProps {
@@ -26,7 +26,12 @@ const MoreActionSheet = forwardRef<MoreActionSheetRef, MoreActionSheetProps>(
 
     useImperativeHandle(ref, () => ({
       present: () => {
+        console.log('MoreActionSheet present called');
         bottomSheetRef.current?.present();
+        // Try snapping to index 0 after presenting
+        setTimeout(() => {
+          bottomSheetRef.current?.snapToIndex(0);
+        }, 100);
       },
       dismiss: () => {
         bottomSheetRef.current?.dismiss();
@@ -41,7 +46,7 @@ const MoreActionSheet = forwardRef<MoreActionSheetRef, MoreActionSheetProps>(
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        snapPoints={[350]}  // Use fixed pixel value
+        snapPoints={['50%']}  // Back to what was working
         enablePanDownToClose={true}
       >
         <View style={styles.container}>
@@ -111,11 +116,13 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
     paddingTop: 10,
+    paddingBottom: 30,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
     color: '#000',
+    marginTop: 15,
     marginBottom: 20,
     textAlign: 'center',
   },
