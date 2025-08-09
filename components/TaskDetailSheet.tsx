@@ -32,7 +32,7 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
     const [dueDate, setDueDate] = useState<Date | undefined>();
     const [isUrgent, setIsUrgent] = useState(false);
     const [currentTask, setCurrentTask] = useState<TaskData | undefined>();
-    const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const isDeleting = useRef(false);
 
     // Create debounced auto-save function (400ms delay)

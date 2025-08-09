@@ -20,7 +20,7 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const recordingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     return () => {

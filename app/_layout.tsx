@@ -6,12 +6,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../features/auth/authStore';
 import notificationService from '../features/notify/notificationService';
 import reminderService from '../features/notify/reminderService';
-import useTaskStore from '../features/task/taskStore';
 import * as Notifications from 'expo-notifications';
 
 export default function RootLayout() {
   const { initialize, cleanup } = useAuthStore();
-  const { cleanupOldDoneTasks } = useTaskStore();
   
   useEffect(() => {
     // Initialize authentication on app startup
@@ -20,8 +18,8 @@ export default function RootLayout() {
     // Initialize notification services
     initializeNotifications();
     
-    // Clean up old done tasks on startup (tasks completed > 30 days ago)
-    cleanupOldDoneTasks();
+    // Note: Auto-cleanup of old done tasks moved to settings
+    // to give users control over their data
     
     // Set up notification listeners
     const notificationListener = Notifications.addNotificationReceivedListener(

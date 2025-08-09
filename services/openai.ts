@@ -34,11 +34,6 @@ class OpenAIService {
     }
 
     try {
-      // Read the audio file
-      const audioBase64 = await FileSystem.readAsStringAsync(audioUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
       // Create form data
       const formData = new FormData();
       formData.append('file', {

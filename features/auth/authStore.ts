@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../../services/supabase';
 import database from '../../db/database';
-import { Q } from '@nozbe/watermelondb';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import reminderService from '../notify/reminderService';
 import { taskSyncService } from '../task/taskSync';

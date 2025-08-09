@@ -3,8 +3,6 @@ import { supabase, SupabaseTask, TABLES, isSupabaseConfigured } from '../../serv
 import useTaskStore from './taskStore';
 import { TaskData } from '../../lib/types';
 import { authService } from '../auth/authService';
-import database from '../../db/database';
-import { Q } from '@nozbe/watermelondb';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OFFLINE_QUEUE_KEY = 'task_sync_offline_queue';
@@ -19,7 +17,7 @@ class TaskSyncService {
   private channel: RealtimeChannel | null = null;
   private syncQueue: Map<string, QueueOperation> = new Map();
   private isSyncing = false;
-  private retryTimeout: NodeJS.Timeout | null = null;
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private queueInitialized = false;
   
   /**

@@ -28,11 +28,6 @@ class NotificationService {
 
   // 请求通知权限
   async requestPermissions(): Promise<boolean> {
-    if (!Device.isDevice) {
-      console.log('Must use physical device for Push Notifications');
-      return false;
-    }
-
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     
@@ -42,7 +37,7 @@ class NotificationService {
     }
     
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+      console.log('Failed to get notification permissions!');
       return false;
     }
     
@@ -55,8 +50,12 @@ class NotificationService {
       });
     }
     
-    // Get and upload push token to Supabase
-    await this.registerPushToken();
+    // Only register push token on physical devices
+    if (Device.isDevice) {
+      await this.registerPushToken();
+    } else {
+      console.log('Skipping push token registration on simulator');
+    }
     
     return true;
   }
