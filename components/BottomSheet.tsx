@@ -66,7 +66,11 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
             <View style={styles.header}>
               <Text style={styles.title}>{title}</Text>
               <TouchableOpacity
-                onPress={() => (ref as any)?.current?.dismiss()}
+                onPress={() => {
+                  if (ref && 'current' in ref && ref.current) {
+                    ref.current.dismiss();
+                  }
+                }}
                 style={styles.closeButton}
               >
                 <Text style={styles.closeIcon}>✕</Text>

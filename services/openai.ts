@@ -33,6 +33,30 @@ class OpenAIService {
       throw new Error('OpenAI API key not configured');
     }
 
+    // Validate audio URI
+    if (!audioUri || typeof audioUri !== 'string') {
+      throw new Error('Invalid audio URI provided');
+    }
+
+    // Check if file exists and validate size
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(audioUri);
+      if (!fileInfo.exists) {
+        throw new Error('Audio file does not exist');
+      }
+      
+      // Check file size (Whisper API limit is 25MB)
+      const maxSize = 25 * 1024 * 1024; // 25MB in bytes
+      if (fileInfo.size && fileInfo.size > maxSize) {
+        throw new Error(`Audio file too large: ${(fileInfo.size / 1024 / 1024).toFixed(2)}MB (max 25MB)`);
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Audio file')) {
+        throw error;
+      }
+      throw new Error('Failed to validate audio file');
+    }
+
     try {
       // Create form data
       const formData = new FormData();

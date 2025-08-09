@@ -28,6 +28,7 @@ class AudioRecorder {
         playThroughEarpieceAndroid: false,
         staysActiveInBackground: true,
         shouldDuckAndroid: true,
+        // @ts-ignore - Constants may not be exposed in types
         interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix
         interruptionModeAndroid: 1, // InterruptionModeAndroid.DoNotMix
       });
@@ -37,15 +38,18 @@ class AudioRecorder {
         {
           android: {
             extension: '.m4a',
-            outputFormat: 2, // MPEG_4
-            audioEncoder: 3, // AAC
+            // @ts-ignore - Constants may not be exposed in types
+            outputFormat: Audio.AndroidOutputFormat?.MPEG_4 || 2,
+            // @ts-ignore - Constants may not be exposed in types
+            audioEncoder: Audio.AndroidAudioEncoder?.AAC || 3,
             sampleRate: 16000, // 16kHz for Whisper
             numberOfChannels: 1, // Mono
             bitRate: 128000,
           },
           ios: {
             extension: '.m4a',
-            audioQuality: 127, // MAX
+            // @ts-ignore - Constants may not be exposed in types
+            audioQuality: Audio.IOSAudioQuality?.MAX || 127,
             sampleRate: 16000, // 16kHz for Whisper
             numberOfChannels: 1, // Mono
             bitRate: 128000,
@@ -90,8 +94,10 @@ class AudioRecorder {
       return uri;
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      this.recording = null;
-      this.isRecording = false;
+      
+      // Ensure state is properly reset even on error
+      await this.resetRecordingState();
+      
       throw error;
     }
   }
@@ -126,6 +132,31 @@ class AudioRecorder {
     } catch (error) {
       console.error('Failed to get recording duration:', error);
       return 0;
+    }
+  }
+
+  private async resetRecordingState(): Promise<void> {
+    try {
+      // Try to clean up recording if it exists
+      if (this.recording) {
+        try {
+          await this.recording.stopAndUnloadAsync();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+      }
+      
+      // Reset audio mode
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+    } catch (error) {
+      console.error('Failed to reset recording state:', error);
+    } finally {
+      // Always reset state variables
+      this.recording = null;
+      this.isRecording = false;
     }
   }
 }

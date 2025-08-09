@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { authService } from '../auth/authService';
 
 // 配置通知行为
@@ -9,6 +10,7 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    // @ts-ignore - Platform-specific fields
     shouldShowBanner: true,
     shouldShowList: true,
   }),
@@ -63,9 +65,19 @@ class NotificationService {
   // 获取并上传推送令牌到 Supabase
   async registerPushToken(): Promise<void> {
     try {
+      // Get projectId from Constants or fallback to env
+      const projectId = Constants.easConfig?.projectId || 
+                       Constants.expoConfig?.extra?.eas?.projectId ||
+                       process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+      
+      if (!projectId) {
+        console.warn('No EAS project ID found, skipping push token registration');
+        return;
+      }
+      
       // Get the push token
       const token = await Notifications.getExpoPushTokenAsync({
-        projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
+        projectId,
       });
       
       if (token && token.data) {

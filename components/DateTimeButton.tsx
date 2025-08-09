@@ -20,6 +20,7 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
   mode = 'datetime',
 }) => {
   const [showPicker, setShowPicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false); // For Android two-step selection
   const [tempDate, setTempDate] = useState(value || new Date());
 
   const formatDate = (date: Date) => {
@@ -47,6 +48,13 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
   const handleDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowPicker(false);
+      
+      // For Android datetime mode, show time picker after date selection
+      if (mode === 'datetime' && selectedDate) {
+        setTempDate(selectedDate);
+        setTimeout(() => setShowTimePicker(true), 100);
+        return;
+      }
     }
     
     if (selectedDate) {
@@ -61,6 +69,17 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
       if (Platform.OS === 'android') {
         onChange(selectedDate);
       }
+    }
+  };
+
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    
+    if (selectedTime) {
+      const combinedDate = new Date(tempDate);
+      combinedDate.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+      setTempDate(combinedDate);
+      onChange(combinedDate);
     }
   };
 
@@ -127,9 +146,18 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
           {Platform.OS === 'android' && (
             <DateTimePicker
               value={tempDate}
-              mode={mode}
+              mode={mode === 'datetime' ? 'date' : mode}
               display="default"
               onChange={handleDateChange}
+            />
+          )}
+          
+          {Platform.OS === 'android' && showTimePicker && (
+            <DateTimePicker
+              value={tempDate}
+              mode="time"
+              display="default"
+              onChange={handleTimeChange}
             />
           )}
         </>

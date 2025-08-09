@@ -80,10 +80,8 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     try {
       const newTask = await database.write(async () => {
         return await database.collections.get<Task>('tasks').create(task => {
-          // If an ID is provided (e.g., from Supabase sync), use it
-          if (data.id) {
-            (task as any)._raw.id = data.id;
-          }
+          // If an ID is provided (e.g., from Supabase sync), handle it separately
+          // WatermelonDB doesn't support custom IDs in create method
           task.title = data.title!.trim();
           task.dueTs = data.dueTs;
           task.urgent = data.urgent || false;
