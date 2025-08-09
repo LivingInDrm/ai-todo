@@ -49,8 +49,11 @@ class ReminderService {
   async setReminder(task: TaskData): Promise<void> {
     await this.initialize();
     
+    // 统一处理字段名：优先使用 dueTs（驼峰命名），兼容 due_ts（下划线命名）
+    const dueTs = task.dueTs ?? task.due_ts;
+    
     // 如果任务没有截止时间或已完成，取消提醒
-    if (!task.due_ts || task.status === 1) {
+    if (!dueTs || task.status === 1) {
       await this.cancelReminder(task.id);
       return;
     }
@@ -59,7 +62,7 @@ class ReminderService {
     await this.cancelReminder(task.id);
 
     // 设置新的提醒
-    const dueDate = new Date(task.due_ts);
+    const dueDate = new Date(dueTs);
     const notificationId = await notificationService.scheduleNotification(
       task.id,
       task.title,
@@ -97,7 +100,9 @@ class ReminderService {
 
     // 处理每个任务
     for (const task of tasks) {
-      const needsReminder = task.due_ts && task.status === 0;
+      // 统一处理字段名
+      const dueTs = task.dueTs ?? task.due_ts;
+      const needsReminder = dueTs && task.status === 0;
       const hasReminder = scheduledTaskIds.has(task.id);
 
       if (needsReminder && !hasReminder) {
@@ -126,16 +131,19 @@ class ReminderService {
     const now = Date.now();
     
     for (const task of tasks) {
-      if (task.due_ts && task.status === 0) {
-        const reminderTime = task.due_ts - 30 * 60 * 1000; // 提前30分钟
+      // 统一处理字段名
+      const dueTs = task.dueTs ?? task.due_ts;
+      
+      if (dueTs && task.status === 0) {
+        const reminderTime = dueTs - 30 * 60 * 1000; // 提前30分钟
         
         // 如果提醒时间已过但任务未完成，可以设置立即提醒或跳过
-        if (reminderTime <= now && task.due_ts > now) {
+        if (reminderTime <= now && dueTs > now) {
           // 任务还未到期，但提醒时间已过，设置立即提醒
           const notificationId = await notificationService.scheduleNotification(
             task.id,
             task.title,
-            new Date(task.due_ts),
+            new Date(dueTs),
             0 // 立即提醒
           );
           

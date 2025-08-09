@@ -9,9 +9,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OFFLINE_QUEUE_KEY = 'task_sync_offline_queue';
 
+type QueueOperation = {
+  op: 'upsert' | 'delete';
+  taskId: string;
+  task?: SupabaseTask;
+};
+
 class TaskSyncService {
   private channel: RealtimeChannel | null = null;
-  private syncQueue: Map<string, SupabaseTask> = new Map();
+  private syncQueue: Map<string, QueueOperation> = new Map();
   private isSyncing = false;
   private retryTimeout: NodeJS.Timeout | null = null;
   private queueInitialized = false;
@@ -25,11 +31,11 @@ class TaskSyncService {
     try {
       const stored = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
       if (stored) {
-        const queue = JSON.parse(stored) as SupabaseTask[];
-        queue.forEach(task => {
-          this.syncQueue.set(task.id, task);
+        const queue = JSON.parse(stored) as QueueOperation[];
+        queue.forEach(operation => {
+          this.syncQueue.set(operation.taskId, operation);
         });
-        console.log(`Loaded ${queue.length} items from offline queue`);
+        console.log(`Loaded ${queue.length} operations from offline queue`);
       }
       this.queueInitialized = true;
     } catch (error) {
@@ -51,21 +57,19 @@ class TaskSyncService {
   }
   
   /**
-   * Initialize real-time subscription for task updates
+   * Initialize realtime subscriptions
    */
   async initializeRealtimeSync(): Promise<void> {
-    // Load offline queue first
-    await this.loadOfflineQueue();
-    
-    // Process offline queue if there are items
-    if (this.syncQueue.size > 0) {
-      console.log('Processing offline queue on initialization...');
-      this.processOfflineQueue();
-    }
     if (!isSupabaseConfigured()) {
       console.log('Supabase not configured, skipping realtime sync');
       return;
     }
+    
+    // Load offline queue before starting
+    await this.loadOfflineQueue();
+    
+    // Process any pending offline operations
+    await this.processOfflineQueue();
     
     const user = await authService.getCurrentUser();
     if (!user) {
@@ -73,12 +77,12 @@ class TaskSyncService {
       return;
     }
     
-    // Clean up existing subscription if any
-    this.cleanup();
+    // Perform initial sync
+    await this.performInitialSync();
     
-    // Create channel for real-time updates
+    // Setup realtime subscription
     this.channel = supabase!
-      .channel('tasks-channel')
+      .channel('tasks-changes')
       .on(
         'postgres_changes',
         {
@@ -91,24 +95,68 @@ class TaskSyncService {
           this.handleRealtimeChange(payload);
         }
       )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          // Perform initial sync when subscription is established
-          this.performInitialSync();
-        }
-      });
+      .subscribe();
   }
   
   /**
-   * Handle real-time change events from Supabase
+   * Perform initial sync from Supabase to local
+   */
+  async performInitialSync(): Promise<void> {
+    const user = await authService.getCurrentUser();
+    if (!user || !isSupabaseConfigured()) {
+      return;
+    }
+    
+    try {
+      const { data: remoteTasks, error } = await supabase!
+        .from(TABLES.TASKS)
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Error fetching remote tasks:', error);
+        return;
+      }
+      
+      if (!remoteTasks || remoteTasks.length === 0) {
+        return;
+      }
+      
+      const taskStore = useTaskStore.getState();
+      const localTasks = taskStore.tasks;
+      
+      // Process each remote task
+      for (const remoteTask of remoteTasks) {
+        const localTask = localTasks.find(t => t.id === remoteTask.id);
+        
+        if (!localTask) {
+          // Task exists in remote but not local - check if it's in delete queue
+          const queuedOp = this.syncQueue.get(remoteTask.id);
+          if (queuedOp && queuedOp.op === 'delete') {
+            // Skip this task as it's pending deletion
+            console.log(`Skipping remote task ${remoteTask.id} as it's pending deletion`);
+            continue;
+          }
+          
+          // Create task locally
+          await this.syncTaskToLocal(remoteTask);
+        } else if (remoteTask.updated_ts > localTask.updatedTs) {
+          // Remote task is newer - update local
+          await this.syncTaskToLocal(remoteTask);
+        }
+      }
+    } catch (error) {
+      console.error('Error during initial sync:', error);
+    }
+  }
+  
+  /**
+   * Handle realtime changes from Supabase
    */
   private async handleRealtimeChange(
     payload: RealtimePostgresChangesPayload<SupabaseTask>
   ): Promise<void> {
     console.log('Realtime change received:', payload.eventType);
-    
-    const taskStore = useTaskStore.getState();
     
     switch (payload.eventType) {
       case 'INSERT':
@@ -125,6 +173,7 @@ class TaskSyncService {
         
       case 'DELETE':
         if (payload.old && payload.old.id) {
+          const taskStore = useTaskStore.getState();
           await taskStore.deleteTask(payload.old.id, true); // Don't sync back to Supabase
         }
         break;
@@ -157,119 +206,37 @@ class TaskSyncService {
     if (existingTask) {
       // Update existing task (last-write-wins based on updated_ts)
       if (supabaseTask.updated_ts > existingTask.updatedTs) {
-        await taskStore.updateTask(supabaseTask.id, localTask, true); // Don't sync back
+        await taskStore.updateTask(supabaseTask.id, localTask, true); // Don't sync back to Supabase
       }
     } else {
       // Create new task locally
-      await taskStore.createTask(localTask, true); // Don't sync back
+      await taskStore.createTask(localTask, true); // Don't sync back to Supabase
     }
   }
   
   /**
-   * Perform initial sync when connection is established
-   */
-  private async performInitialSync(): Promise<void> {
-    if (!isSupabaseConfigured() || this.isSyncing) {
-      return;
-    }
-    
-    const user = await authService.getCurrentUser();
-    if (!user) {
-      return;
-    }
-    
-    this.isSyncing = true;
-    
-    try {
-      console.log('Performing initial sync...');
-      
-      // Fetch all tasks from Supabase
-      const { data: remoteTasks, error } = await supabase!
-        .from(TABLES.TASKS)
-        .select('*')
-        .eq('user_id', user.id);
-      
-      if (error) {
-        console.error('Error fetching remote tasks:', error);
-        return;
-      }
-      
-      if (!remoteTasks) {
-        return;
-      }
-      
-      // Get all local tasks
-      const localTasksCollection = database.get<any>('tasks');
-      const localTasks = await localTasksCollection.query().fetch();
-      
-      // Create maps for efficient lookup
-      const remoteTaskMap = new Map(remoteTasks.map(t => [t.id, t]));
-      const localTaskMap = new Map(localTasks.map(t => [t.id, t]));
-      
-      // Sync remote tasks to local (including new and updated)
-      for (const remoteTask of remoteTasks) {
-        const localTask = localTaskMap.get(remoteTask.id);
-        
-        if (!localTask) {
-          // Task exists only on remote, create locally
-          await this.syncTaskToLocal(remoteTask);
-        } else if (remoteTask.updated_ts > localTask.updatedTs) {
-          // Remote task is newer, update local
-          await this.syncTaskToLocal(remoteTask);
-        } else if (localTask.updatedTs > remoteTask.updated_ts) {
-          // Local task is newer, update remote
-          await this.syncTaskToSupabase(localTask);
-        }
-      }
-      
-      // Upload local tasks that don't exist remotely
-      for (const localTask of localTasks) {
-        if (!remoteTaskMap.has(localTask.id)) {
-          await this.syncTaskToSupabase(localTask);
-        }
-      }
-      
-      console.log('Initial sync completed');
-    } catch (error) {
-      console.error('Error during initial sync:', error);
-    } finally {
-      this.isSyncing = false;
-      
-      // Process any queued changes
-      this.processOfflineQueue();
-    }
-  }
-  
-  /**
-   * Sync a local task to Supabase
+   * Sync a task from local to Supabase
    */
   async syncTaskToSupabase(task: any): Promise<void> {
     const user = await authService.getCurrentUser();
-    if (!user) {
-      console.log('No authenticated user, skipping sync to Supabase');
-      return;
-    }
-    
-    // Convert to Supabase format first, regardless of online/offline status
-    const supabaseTask: SupabaseTask = {
-      id: task.id,
-      user_id: user.id,
-      title: task.title,
-      due_ts: task.dueTs || null,
-      urgent: task.urgent ? 1 : 0,
-      status: task.status,
-      pending: task.pending ? 1 : 0,
-      pinned_at: task.pinnedAt || 0,
-      completed_ts: task.completedTs || null,
-      created_ts: task.createdTs,
-      updated_ts: task.updatedTs,
-    };
+    const userId = user?.id || '';
     
     if (!isSupabaseConfigured()) {
-      // Add to offline queue in Supabase format
-      this.addToOfflineQueue(supabaseTask);
+      // Add to offline queue
+      const supabaseTask = this.convertToSupabaseTask(task, userId);
+      await this.addToOfflineQueue({
+        op: 'upsert',
+        taskId: task.id,
+        task: supabaseTask
+      });
       return;
     }
+    
+    if (!user) {
+      return;
+    }
+    
+    const supabaseTask = this.convertToSupabaseTask(task, userId);
     
     try {
       const { error } = await supabase!
@@ -280,12 +247,47 @@ class TaskSyncService {
       
       if (error) {
         console.error('Error syncing task to Supabase:', error);
-        this.addToOfflineQueue(supabaseTask);
+        // Add to offline queue for retry
+        await this.addToOfflineQueue({
+          op: 'upsert',
+          taskId: task.id,
+          task: supabaseTask
+        });
+      } else {
+        // Remove from queue if it was there
+        if (this.syncQueue.has(task.id)) {
+          this.syncQueue.delete(task.id);
+          await this.saveOfflineQueue();
+        }
       }
     } catch (error) {
       console.error('Error syncing task to Supabase:', error);
-      this.addToOfflineQueue(supabaseTask);
+      // Add to offline queue for retry
+      await this.addToOfflineQueue({
+        op: 'upsert',
+        taskId: task.id,
+        task: supabaseTask
+      });
     }
+  }
+  
+  /**
+   * Convert local task to Supabase format
+   */
+  private convertToSupabaseTask(task: any, userId: string): SupabaseTask {
+    return {
+      id: task.id,
+      user_id: userId,
+      title: task.title,
+      due_ts: task.dueTs || task.due_ts || null,
+      urgent: task.urgent ? 1 : 0,
+      status: task.status,
+      pending: task.pending ? 1 : 0,
+      pinned_at: task.pinnedAt || task.pinned_at || 0,
+      completed_ts: task.completedTs || task.completed_ts || null,
+      created_ts: task.createdTs || task.created_ts || Date.now(),
+      updated_ts: task.updatedTs || task.updated_ts || Date.now(),
+    };
   }
   
   /**
@@ -293,6 +295,11 @@ class TaskSyncService {
    */
   async deleteTaskFromSupabase(taskId: string): Promise<void> {
     if (!isSupabaseConfigured()) {
+      // Add delete operation to offline queue
+      await this.addToOfflineQueue({
+        op: 'delete',
+        taskId: taskId
+      });
       return;
     }
     
@@ -310,17 +317,33 @@ class TaskSyncService {
       
       if (error) {
         console.error('Error deleting task from Supabase:', error);
+        // Add to offline queue for retry
+        await this.addToOfflineQueue({
+          op: 'delete',
+          taskId: taskId
+        });
+      } else {
+        // Remove from queue if it was there
+        if (this.syncQueue.has(taskId)) {
+          this.syncQueue.delete(taskId);
+          await this.saveOfflineQueue();
+        }
       }
     } catch (error) {
       console.error('Error deleting task from Supabase:', error);
+      // Add to offline queue for retry
+      await this.addToOfflineQueue({
+        op: 'delete',
+        taskId: taskId
+      });
     }
   }
   
   /**
-   * Add task to offline queue for later sync
+   * Add operation to offline queue for later sync
    */
-  private async addToOfflineQueue(task: SupabaseTask): Promise<void> {
-    this.syncQueue.set(task.id, task);
+  private async addToOfflineQueue(operation: QueueOperation): Promise<void> {
+    this.syncQueue.set(operation.taskId, operation);
     await this.saveOfflineQueue();
     
     // Schedule retry with exponential backoff
@@ -336,7 +359,11 @@ class TaskSyncService {
    * Process offline queue when connection is restored
    */
   async processOfflineQueue(): Promise<void> {
-    if (this.syncQueue.size === 0 || !isSupabaseConfigured()) {
+    if (this.syncQueue.size === 0 || this.isSyncing) {
+      return;
+    }
+    
+    if (!isSupabaseConfigured()) {
       return;
     }
     
@@ -345,43 +372,60 @@ class TaskSyncService {
       return;
     }
     
-    console.log(`Processing offline queue with ${this.syncQueue.size} items`);
+    this.isSyncing = true;
+    console.log(`Processing offline queue with ${this.syncQueue.size} operations`);
     
-    const tasksToSync = Array.from(this.syncQueue.values());
-    const failedTasks: SupabaseTask[] = [];
+    const operationsToSync = Array.from(this.syncQueue.values());
+    const failedOperations: QueueOperation[] = [];
     let successCount = 0;
     
-    for (const task of tasksToSync) {
+    for (const operation of operationsToSync) {
       try {
-        const { error } = await supabase!
-          .from(TABLES.TASKS)
-          .upsert(task, {
-            onConflict: 'id',
-          });
+        let error;
+        
+        if (operation.op === 'delete') {
+          // Process delete operation
+          const result = await supabase!
+            .from(TABLES.TASKS)
+            .delete()
+            .eq('id', operation.taskId)
+            .eq('user_id', user.id);
+          error = result.error;
+        } else if (operation.op === 'upsert' && operation.task) {
+          // Process upsert operation
+          const result = await supabase!
+            .from(TABLES.TASKS)
+            .upsert(operation.task, {
+              onConflict: 'id',
+            });
+          error = result.error;
+        }
         
         if (error) {
-          console.error('Error syncing queued task:', error);
-          failedTasks.push(task);
+          console.error(`Error syncing queued ${operation.op}:`, error);
+          failedOperations.push(operation);
         } else {
           successCount++;
-          this.syncQueue.delete(task.id);
+          this.syncQueue.delete(operation.taskId);
         }
       } catch (error) {
-        console.error('Error syncing queued task:', error);
-        failedTasks.push(task);
+        console.error(`Error syncing queued ${operation.op}:`, error);
+        failedOperations.push(operation);
       }
     }
     
-    // Re-add failed tasks to queue
-    if (failedTasks.length > 0) {
-      failedTasks.forEach(task => {
-        this.syncQueue.set(task.id, task);
+    this.isSyncing = false;
+    
+    // Re-add failed operations to queue
+    if (failedOperations.length > 0) {
+      failedOperations.forEach(operation => {
+        this.syncQueue.set(operation.taskId, operation);
       });
       await this.saveOfflineQueue();
       
       // Schedule retry with exponential backoff
       if (!this.retryTimeout) {
-        const retryDelay = Math.min(30000 * Math.pow(2, failedTasks.length), 300000); // Max 5 minutes
+        const retryDelay = Math.min(30000 * Math.pow(2, failedOperations.length), 300000); // Max 5 minutes
         this.retryTimeout = setTimeout(() => {
           this.processOfflineQueue();
         }, retryDelay);
@@ -395,7 +439,7 @@ class TaskSyncService {
       }
     }
     
-    console.log(`Sync complete: ${successCount} successful, ${failedTasks.length} failed`);
+    console.log(`Sync complete: ${successCount} successful, ${failedOperations.length} failed`);
   }
   
   /**
@@ -412,11 +456,13 @@ class TaskSyncService {
       this.retryTimeout = null;
     }
     
-    // Save any pending items before cleanup
-    if (this.syncQueue.size > 0) {
-      await this.saveOfflineQueue();
-    }
+    // Clear sync queue
+    this.syncQueue.clear();
+    await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
   }
 }
 
-export const taskSyncService = new TaskSyncService();
+const taskSyncService = new TaskSyncService();
+
+// Re-export the taskStore for convenience
+export { taskSyncService, useTaskStore as taskStore };
