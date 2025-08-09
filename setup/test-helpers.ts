@@ -2,7 +2,7 @@
  * Centralized test helpers for consistent test setup and teardown
  */
 
-import { createTestDatabase } from './mock/watermelondb';
+import { createTestDatabase, resetDatabase } from './mock/sqliteDatabase';
 
 // Global test database instance that can be reset
 let testDatabase: any = null;
@@ -66,11 +66,13 @@ export const resetAllStores = () => {
  * Reset the test database and clear all data
  */
 export const resetTestDatabase = async () => {
-  // Get the current database instance from the mocked module
+  // Use the new resetDatabase function from the mock
   try {
-    const mockDb = require('../db/database').default;
-    if (mockDb && mockDb.unsafeResetDatabase) {
-      await mockDb.unsafeResetDatabase();
+    await resetDatabase();
+    // Also reset the mock task repository if available
+    const { taskRepository } = require('../db/database');
+    if (taskRepository && typeof taskRepository.reset === 'function') {
+      taskRepository.reset();
     }
   } catch (error) {
     // Database module might not be mocked in some tests
@@ -78,11 +80,6 @@ export const resetTestDatabase = async () => {
     if (error instanceof Error && !error.message?.includes('Cannot read properties of undefined')) {
       console.debug('Could not reset database:', error);
     }
-  }
-  
-  // Also reset the local test database if it exists
-  if (testDatabase) {
-    await testDatabase.unsafeResetDatabase();
   }
 };
 

@@ -173,7 +173,11 @@ class TaskSyncService {
       case 'DELETE':
         if (payload.old && payload.old.id) {
           const taskStore = useTaskStore.getState();
-          await taskStore.deleteTask(payload.old.id, true); // Don't sync back to Supabase
+          // Find local task by remote_id mapping
+          const localTask = taskStore.tasks.find(t => t.remoteId === payload.old.id);
+          if (localTask) {
+            await taskStore.deleteTask(localTask.id, true); // Don't sync back to Supabase
+          }
         }
         break;
     }

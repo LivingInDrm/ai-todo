@@ -189,7 +189,7 @@ export default function TaskListScreen() {
 
     switch (option) {
       case 'tonight':
-        now.setHours(21, 0, 0, 0);
+        now.setHours(20, 0, 0, 0);
         newDueTs = now.getTime();
         break;
       case 'tomorrow':

@@ -9,23 +9,16 @@ import React from 'react';
 import { FlatList, Animated } from 'react-native';
 import { TaskStatus } from '../../lib/types';
 
-// Mock the database module at the top level
-jest.mock('../../db/database', () => {
-  const mockDatabase = require('../../setup/mock/watermelondb').createTestDatabase();
-  return {
-    __esModule: true,
-    default: mockDatabase,
-    Task: mockDatabase.collections.get('tasks').modelClass,
-  };
-});
-
-// Import after mocking
+// Import after test setup
 import useTaskStore from '../../features/task/taskStore';
 import useDraftStore from '../../features/draft/draftStore';
+import { taskRepository } from '../../db/database';
 
 describe('Performance and Animation', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Reset the mock repository
+    (taskRepository as any).reset?.();
     // Reset store states
     useTaskStore.setState({ tasks: [], loading: false, error: null });
     useDraftStore.setState({ drafts: [], isExpanded: true, loading: false, lastConfirmedIds: [] });

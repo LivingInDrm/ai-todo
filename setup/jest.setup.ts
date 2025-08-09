@@ -1,28 +1,10 @@
 import '@testing-library/jest-native/extend-expect';
 import 'jest-extended';
 
-// Mock WatermelonDB SQLiteAdapter FIRST before any other imports
-jest.mock('@nozbe/watermelondb/adapters/sqlite', () => {
-  const mockAdapter = jest.fn().mockImplementation(() => ({
-    schema: {},
-    migrations: {},
-    jsi: false,
-    find: jest.fn(),
-    query: jest.fn(),
-    batch: jest.fn(),
-    getDeletedRecords: jest.fn(),
-    destroyDeletedRecords: jest.fn(),
-    unsafeResetDatabase: jest.fn(),
-    getLocal: jest.fn(),
-    setLocal: jest.fn(),
-    removeLocal: jest.fn(),
-  }));
-  
-  return {
-    __esModule: true,
-    default: mockAdapter,
-    SQLiteAdapter: mockAdapter
-  };
+// Mock expo-sqlite FIRST before any other imports
+jest.mock('expo-sqlite', () => {
+  const { SQLite } = require('./mock/sqliteDatabase');
+  return SQLite;
 });
 
 // Mock AsyncStorage
@@ -200,52 +182,61 @@ jest.mock('@react-native-community/datetimepicker', () => {
 });
 
 // Mock the database module BEFORE any imports that might use it
+const { createMockTaskRepository } = require('./mock/mockTaskRepository');
+const mockTaskRepository = createMockTaskRepository();
+
 jest.mock('../db/database', () => {
-  const { createTestDatabase } = require('./mock/watermelondb');
-  const mockDatabase = createTestDatabase();
+  const { initializeDatabase, getDatabase } = require('./mock/sqliteDatabase');
   
-  // Mock Task model class
-  class MockTask {
-    static table = 'tasks';
-    id!: string;
-    title!: string;
-    dueTs?: number;
-    urgent!: boolean;
-    status!: number;
-    pending!: boolean;
-    completedTs?: number;
-    pinnedAt?: number;
-    createdTs!: number;
-    updatedTs!: number;
-    
-    constructor(database: any, raw: any) {
-      Object.assign(this, raw);
+  // Simple Task class for testing
+  class Task {
+    constructor(data: any) {
+      Object.assign(this, data);
     }
-    
-    async update(fn: (task: any) => void): Promise<void> {
-      fn(this);
-      // Update in mock storage
-      const collection = mockDatabase.collections.get('tasks');
-      await collection.storage.update('tasks', this.id, this);
-    }
-    
-    async togglePin(): Promise<void> {
-      this.pinnedAt = this.pinnedAt ? undefined : Date.now();
-      this.updatedTs = Date.now();
-      const collection = mockDatabase.collections.get('tasks');
-      await collection.storage.update('tasks', this.id, this);
-    }
-    
-    async markAsDeleted(): Promise<void> {
-      const collection = mockDatabase.collections.get('tasks');
-      await collection.storage.delete('tasks', this.id);
+    static fromData(data: any) {
+      return new Task(data);
     }
   }
   
   return {
     __esModule: true,
-    default: mockDatabase,
-    Task: MockTask
+    default: {
+      collections: {
+        get: () => ({
+          create: async (fn: any) => {
+            const task: any = {};
+            if (fn) fn(task);
+            const created = await mockTaskRepository.create(task);
+            return Task.fromData(created);
+          },
+          find: async (id: string) => {
+            const data = await mockTaskRepository.findById(id);
+            return data ? Task.fromData(data) : null;
+          },
+          query: () => ({
+            fetch: async () => {
+              const results = await mockTaskRepository.getAllTasks();
+              return results.map((data: any) => Task.fromData(data));
+            }
+          })
+        })
+      },
+      write: async (fn: () => Promise<any>) => {
+        await initializeDatabase();
+        return await fn();
+      },
+      unsafeResetDatabase: async () => {
+        mockTaskRepository.reset();
+        await initializeDatabase();
+        const db = getDatabase();
+        if (db) {
+          db.clear();
+        }
+      }
+    },
+    Task,
+    taskRepository: mockTaskRepository,
+    ensureDatabaseInitialized: initializeDatabase
   };
 });
 

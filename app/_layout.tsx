@@ -6,20 +6,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../features/auth/authStore';
 import notificationService from '../features/notify/notificationService';
 import reminderService from '../features/notify/reminderService';
+import { taskRepository } from '../db/repositories/taskRepository';
+import { ensureDatabaseInitialized } from '../db/database';
 import * as Notifications from 'expo-notifications';
 
 export default function RootLayout() {
   const { initialize, cleanup } = useAuthStore();
   
   useEffect(() => {
-    // Initialize authentication on app startup
-    initialize();
-    
-    // Initialize notification services
-    initializeNotifications();
-    
-    // Note: Auto-cleanup of old done tasks moved to settings
-    // to give users control over their data
+    // Initialize database first before any repository operations
+    initializeApp();
     
     // Set up notification listeners
     const notificationListener = Notifications.addNotificationReceivedListener(
@@ -30,6 +26,7 @@ export default function RootLayout() {
       response => notificationService.handleNotificationResponse(response)
     );
     
+    // Clean up listeners on unmount
     return () => {
       notificationListener.remove();
       responseListener.remove();
@@ -37,10 +34,33 @@ export default function RootLayout() {
     };
   }, []);
   
+  const initializeApp = async () => {
+    // Ensure database is initialized first
+    await ensureDatabaseInitialized();
+    
+    // Initialize authentication on app startup
+    initialize();
+    
+    // Initialize notification services
+    initializeNotifications();
+    
+    // Auto-cleanup of old done tasks on startup (as per design.md)
+    cleanupOldTasks();
+  };
+  
   const initializeNotifications = async () => {
     const hasPermission = await notificationService.requestPermissions();
     if (hasPermission) {
       await reminderService.initialize();
+    }
+  };
+  
+  const cleanupOldTasks = async () => {
+    try {
+      await taskRepository.cleanupOldDoneTasks();
+      console.log('Cleaned up old done tasks (>30 days)');
+    } catch (error) {
+      console.error('Failed to cleanup old tasks:', error);
     }
   };
   

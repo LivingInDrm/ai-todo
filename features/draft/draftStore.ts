@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Q } from '@nozbe/watermelondb';
-import database, { Task } from '../../db/database';
+import database, { Task, taskRepository } from '../../db/database';
+import { ensureDatabaseInitialized } from '../../db/database';
+import { withTransaction } from '../../db/sqliteDatabase';
 import { DraftTask, TaskData, TaskStatus, VoiceOperation } from '../../lib/types';
 import useTaskStore from '../task/taskStore';
 import reminderService from '../notify/reminderService';
@@ -47,10 +48,8 @@ const useDraftStore = create<DraftStore>((set, get) => ({
   fetchDrafts: async () => {
     set({ loading: true });
     try {
-      const drafts = await database.collections
-        .get<Task>('tasks')
-        .query(Q.where('pending', true))
-        .fetch();
+      await ensureDatabaseInitialized();
+      const drafts = await taskRepository.getDraftTasks();
       
       const draftData: DraftTask[] = drafts.map(draft => ({
         id: draft.id,
@@ -77,37 +76,36 @@ const useDraftStore = create<DraftStore>((set, get) => ({
     set({ loading: true });
     
     try {
+      await ensureDatabaseInitialized();
       const newDrafts: DraftTask[] = [];
       
-      await database.write(async () => {
-        for (const op of operations.slice(0, 10)) { // Max 10 drafts
-          if (op.action === 'add' && op.payload.title) {
-            const task = await database.collections.get<Task>('tasks').create(t => {
-              t.title = op.payload.title!;
-              t.dueTs = op.payload.dueTs;
-              t.urgent = op.payload.urgent || false;
-              t.status = TaskStatus.Active;
-              t.pending = true;
-              t.createdTs = Date.now();
-              t.updatedTs = Date.now();
-            });
-            
-            newDrafts.push({
-              id: task.id,
-              title: task.title,
-              dueTs: task.dueTs,
-              urgent: task.urgent,
-              status: task.status,
-              pending: task.pending,
-              completedTs: task.completedTs,
-              createdTs: task.createdTs,
-              updatedTs: task.updatedTs,
-              operation: op.action,
-              selected: true,
-            });
-          }
+      for (const op of operations.slice(0, 10)) { // Max 10 drafts
+        if (op.action === 'add' && op.payload.title) {
+          const created = await taskRepository.create({
+            title: op.payload.title!,
+            dueTs: op.payload.dueTs,
+            urgent: op.payload.urgent || false,
+            status: TaskStatus.Active,
+            pending: true,
+            createdTs: Date.now(),
+            updatedTs: Date.now(),
+          });
+          
+          newDrafts.push({
+            id: created.id,
+            title: created.title,
+            dueTs: created.dueTs,
+            urgent: created.urgent,
+            status: created.status,
+            pending: created.pending,
+            completedTs: created.completedTs,
+            createdTs: created.createdTs,
+            updatedTs: created.updatedTs,
+            operation: op.action,
+            selected: true,
+          });
         }
-      });
+      }
       
       const currentDrafts = get().drafts;
       set({ drafts: [...newDrafts, ...currentDrafts], loading: false, isExpanded: true });
@@ -121,65 +119,64 @@ const useDraftStore = create<DraftStore>((set, get) => ({
     set({ loading: true });
     
     try {
+      await ensureDatabaseInitialized();
       const newDrafts: DraftTask[] = [];
       
-      await database.write(async () => {
-        for (const draft of drafts.slice(0, 10)) { // Max 10 drafts
-          // Only create new tasks for 'add' operations or drafts without targetTaskId
-          if (draft.action === 'add' || !draft.targetTaskId) {
-            const task = await database.collections.get<Task>('tasks').create(t => {
-              t.title = draft.title;
-              t.dueTs = draft.due_ts || draft.dueTs;
-              t.urgent = draft.urgent || false;
-              t.status = draft.status || TaskStatus.Active;
-              t.pending = true;
-              t.createdTs = Date.now();
-              t.updatedTs = Date.now();
-            });
-            
-            newDrafts.push({
-              id: task.id,
-              title: task.title,
-              dueTs: task.dueTs,
-              urgent: task.urgent,
-              status: task.status,
-              pending: task.pending,
-              completedTs: task.completedTs,
-              createdTs: task.createdTs,
-              updatedTs: task.updatedTs,
-              operation: draft.action || 'add',
-              selected: true,
-              targetTaskId: draft.targetTaskId,
-            });
-          } else {
-            // For update/complete/delete operations, create a lightweight draft record
-            const task = await database.collections.get<Task>('tasks').create(t => {
-              t.title = `[${draft.action}] ${draft.title}`;
-              t.dueTs = draft.due_ts || draft.dueTs;
-              t.urgent = draft.urgent || false;
-              t.status = TaskStatus.Active;
-              t.pending = true;
-              t.createdTs = Date.now();
-              t.updatedTs = Date.now();
-            });
-            
-            newDrafts.push({
-              id: task.id,
-              title: draft.title, // Keep original title for display
-              dueTs: draft.dueTs,
-              urgent: draft.urgent,
-              status: draft.status || TaskStatus.Active,
-              pending: true,
-              completedTs: undefined,
-              createdTs: task.createdTs,
-              updatedTs: task.updatedTs,
-              operation: draft.action,
-              selected: true,
-              targetTaskId: draft.targetTaskId,
-            });
-          }
+      for (const draft of drafts.slice(0, 10)) { // Max 10 drafts
+        // Only create new tasks for 'add' operations or drafts without targetTaskId
+        if (draft.action === 'add' || !draft.targetTaskId) {
+          const created = await taskRepository.create({
+            title: draft.title,
+            dueTs: draft.due_ts || draft.dueTs,
+            urgent: draft.urgent || false,
+            status: draft.status || TaskStatus.Active,
+            pending: true,
+            createdTs: Date.now(),
+            updatedTs: Date.now(),
+          });
+          
+          newDrafts.push({
+            id: created.id,
+            title: created.title,
+            dueTs: created.dueTs,
+            urgent: created.urgent,
+            status: created.status,
+            pending: created.pending,
+            completedTs: created.completedTs,
+            createdTs: created.createdTs,
+            updatedTs: created.updatedTs,
+            operation: draft.action || 'add',
+            selected: true,
+            targetTaskId: draft.targetTaskId,
+          });
+        } else {
+          // For update/complete/delete operations, create a lightweight draft record
+          const created = await taskRepository.create({
+            title: `[${draft.action}] ${draft.title}`,
+            dueTs: draft.due_ts || draft.dueTs,
+            urgent: draft.urgent || false,
+            status: TaskStatus.Active,
+            pending: true,
+            createdTs: Date.now(),
+            updatedTs: Date.now(),
+          });
+          
+          newDrafts.push({
+            id: created.id,
+            title: draft.title, // Keep original title for display
+            dueTs: draft.dueTs,
+            urgent: draft.urgent,
+            status: draft.status || TaskStatus.Active,
+            pending: true,
+            completedTs: undefined,
+            createdTs: created.createdTs,
+            updatedTs: created.updatedTs,
+            operation: draft.action,
+            selected: true,
+            targetTaskId: draft.targetTaskId,
+          });
         }
-      });
+      }
       
       const currentDrafts = get().drafts;
       set({ drafts: [...newDrafts, ...currentDrafts], loading: false, isExpanded: true });
@@ -196,47 +193,58 @@ const useDraftStore = create<DraftStore>((set, get) => ({
     const undoOperations: UndoOperation[] = [];
     
     try {
-      await database.write(async () => {
+      await ensureDatabaseInitialized();
+      
+      // Use transaction for atomic batch confirmation
+      await withTransaction(async () => {
         for (const draft of selectedDrafts) {
-          const task = await database.collections.get<Task>('tasks').find(draft.id);
-          await task.confirmDraft();
+          await taskRepository.confirmDraft(draft.id);
           confirmedIds.push(draft.id);
           
           // Track undo operation for add
           undoOperations.push({ type: 'add', taskId: draft.id });
           
           if (draft.operation === 'complete') {
-            await task.markAsCompleted();
+            await taskRepository.update(draft.id, {
+              status: TaskStatus.Completed,
+              completedTs: Date.now(),
+            });
           } else if (draft.operation === 'delete') {
             // Handle delete operation
-            await task.markAsDeleted();
+            await taskRepository.delete(draft.id);
           }
-          
-          // Set reminder for new active tasks with due dates
-          if (draft.operation === 'add' && task.dueTs && task.status === TaskStatus.Active) {
-            await reminderService.setReminder({
-              id: task.id,
-              title: task.title,
-              dueTs: task.dueTs,
-              due_ts: task.dueTs,
-              urgent: task.urgent,
-              status: task.status,
-              pending: false,
-              pinnedAt: task.pinnedAt,
-              pinned_at: task.pinnedAt,
-              completedTs: task.completedTs,
-              completed_ts: task.completedTs,
-              createdTs: task.createdTs,
-              created_ts: task.createdTs,
-              updatedTs: task.updatedTs,
-              updated_ts: task.updatedTs
-            });
-          }
-          
-          // Sync to cloud after confirmation
-          await taskSyncService.syncTaskToSupabase(task);
         }
       });
+      
+      // Set reminders after transaction succeeds
+      for (const draft of selectedDrafts) {
+        // Set reminder for new active tasks with due dates
+        if (draft.operation === 'add' && draft.dueTs && draft.status === TaskStatus.Active) {
+          await reminderService.setReminder({
+            id: draft.id,
+            title: draft.title,
+            dueTs: draft.dueTs,
+            due_ts: draft.dueTs,
+            urgent: draft.urgent,
+            status: draft.status,
+            pending: false,
+            pinnedAt: 0,
+            pinned_at: 0,
+            completedTs: draft.completedTs,
+            completed_ts: draft.completedTs,
+            createdTs: draft.createdTs,
+            created_ts: draft.createdTs,
+            updatedTs: draft.updatedTs,
+            updated_ts: draft.updatedTs
+          });
+        }
+        
+        // Sync to cloud after confirmation
+        const task = await taskRepository.findById(draft.id);
+        if (task) {
+          await taskSyncService.syncTaskToSupabase(Task.fromData(task));
+        }
+      }
       
       const remainingDrafts = drafts.filter(d => !selectedIds.includes(d.id));
       set({ 
@@ -253,12 +261,8 @@ const useDraftStore = create<DraftStore>((set, get) => ({
 
   rejectDrafts: async (rejectedIds: string[]) => {
     try {
-      await database.write(async () => {
-        for (const id of rejectedIds) {
-          const task = await database.collections.get<Task>('tasks').find(id);
-          await task.markAsDeleted();
-        }
-      });
+      await ensureDatabaseInitialized();
+      await taskRepository.deleteMany(rejectedIds);
       
       const drafts = get().drafts.filter(d => !rejectedIds.includes(d.id));
       set({ drafts });
@@ -283,61 +287,50 @@ const useDraftStore = create<DraftStore>((set, get) => ({
     }
     
     try {
-      await database.write(async () => {
+      await ensureDatabaseInitialized();
+      
+      // Use transaction for atomic undo operations
+      await withTransaction(async () => {
         for (const op of lastUndoOperations) {
-          try {
-            switch (op.type) {
-              case 'add':
-                // Delete the newly added task
-                const addedTask = await database.collections.get<Task>('tasks').find(op.taskId);
-                await addedTask.markAsDeleted();
-                break;
-                
-              case 'update':
-                // Restore previous values
-                if (op.previousState) {
-                  const updatedTask = await database.collections.get<Task>('tasks').find(op.taskId);
-                  await updatedTask.update(t => {
-                    if (op.previousState!.title !== undefined) t.title = op.previousState!.title;
-                    if (op.previousState!.dueTs !== undefined) t.dueTs = op.previousState!.dueTs;
-                    if (op.previousState!.urgent !== undefined) t.urgent = op.previousState!.urgent;
-                    t.updatedTs = Date.now();
-                  });
-                }
-                break;
-                
-              case 'complete':
-                // Restore to active state
-                if (op.previousState) {
-                  const completedTask = await database.collections.get<Task>('tasks').find(op.taskId);
-                  await completedTask.update(t => {
-                    t.status = TaskStatus.Active;
-                    t.completedTs = undefined;
-                    t.updatedTs = Date.now();
-                  });
-                }
-                break;
-                
-              case 'delete':
-                // Recreate the deleted task
-                if (op.previousState) {
-                  await database.collections.get<Task>('tasks').create(t => {
-                    // Recreate with new ID but preserve original data
-                    t.title = op.previousState!.title!;
-                    t.dueTs = op.previousState!.dueTs;
-                    t.urgent = op.previousState!.urgent || false;
-                    t.status = op.previousState!.status || TaskStatus.Active;
-                    t.pending = false;
-                    t.completedTs = op.previousState!.completedTs;
-                    t.pinnedAt = op.previousState!.pinnedAt;
-                    t.createdTs = op.previousState!.createdTs || Date.now();
-                    t.updatedTs = Date.now();
-                  });
-                }
-                break;
-            }
-          } catch (error) {
-            console.error(`Failed to undo operation for task ${op.taskId}:`, error);
+          switch (op.type) {
+            case 'add':
+              // Delete the newly added task
+              await taskRepository.delete(op.taskId);
+              break;
+              
+            case 'update':
+              // Restore previous values
+              if (op.previousState) {
+                await taskRepository.update(op.taskId, op.previousState);
+              }
+              break;
+              
+            case 'complete':
+              // Restore to active state
+              if (op.previousState) {
+                await taskRepository.update(op.taskId, {
+                  status: TaskStatus.Active,
+                  completedTs: null,
+                });
+              }
+              break;
+              
+            case 'delete':
+              // Recreate the deleted task
+              if (op.previousState) {
+                await taskRepository.create({
+                  title: op.previousState.title!,
+                  dueTs: op.previousState.dueTs,
+                  urgent: op.previousState.urgent || false,
+                  status: op.previousState.status || TaskStatus.Active,
+                  pending: false,
+                  completedTs: op.previousState.completedTs,
+                  pinnedAt: op.previousState.pinnedAt,
+                  createdTs: op.previousState.createdTs || Date.now(),
+                  updatedTs: Date.now(),
+                });
+              }
+              break;
           }
         }
       });

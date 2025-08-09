@@ -1,7 +1,6 @@
-import { createTestDatabase, createTestTask, createTestTasks } from '../../setup/mock/watermelondb';
+import { createTestDatabase, createTestTask, createTestTasks } from '../../setup/mock/sqliteDatabase';
 import { server } from '../../setup/mock/server';
 import { errorHandlers } from '../../setup/mock/handlers';
-import { Database } from '@nozbe/watermelondb';
 
 describe('Test Infrastructure Verification', () => {
   describe('Basic Jest Setup', () => {
@@ -16,15 +15,16 @@ describe('Test Infrastructure Verification', () => {
     });
   });
 
-  describe('WatermelonDB Test Adapter', () => {
-    it('should create a test database', () => {
-      const database = createTestDatabase();
+  describe('SQLite Test Adapter', () => {
+    it('should create a test database', async () => {
+      const database = await createTestDatabase();
       expect(database).toBeDefined();
+      expect(database.collections).toBeDefined();
       expect(database.collections.get('tasks')).toBeDefined();
     });
 
-    it('should have mock database methods', () => {
-      const database = createTestDatabase();
+    it('should have mock database methods', async () => {
+      const database = await createTestDatabase();
       
       expect(database).toBeDefined();
       expect(typeof database.write).toBe('function');

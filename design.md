@@ -31,7 +31,7 @@
    * 右滑 ≈ 30 %：完成 ↔ 恢复
    * 左滑 → ⋯：延后 / 置顶 / 删除
 4. **字段极简**
-   `id, title, due_ts, urgent, status, completed_ts, created_ts, updated_ts, pending`
+   `id, title, due_ts, urgent, status, completed_ts, created_ts, updated_ts, pending, remote_id（用于本地数据库对齐supabase的id)`
 5. **所见即所得 & 可撤销**
    列表即真数据，所有批量操作 3 s 内可一键撤销。
 
@@ -126,13 +126,14 @@ CREATE TABLE tasks (
   status       INTEGER DEFAULT 0,-- 0 active | 1 completed
   pending      INTEGER DEFAULT 0,-- 0 正式 | 1 草稿
   pinned_at    INTEGER DEFAULT 0,
+  remote_id    TEXT,
   completed_ts INTEGER,
   created_ts   INTEGER,
   updated_ts   INTEGER
 );
 ```
 
-* **本地存储**：SQLite（WatermelonDB）
+* **本地存储**：expo-sqlite
 * **云同步**：Supabase Realtime「最后写入覆盖」策略
 * **错误处理**：网络失败 Toast 提示；语音按钮离线置灰
 
@@ -149,7 +150,7 @@ CREATE TABLE tasks (
 1. **录音**
    长按 🎤（≤ 60 s）；结束后 Whisper → LLM → `operations[]`。
 2. **写入草稿**
-   `pending=1` 写入 SQLite；Draft 区域淡入。
+   `pending=1` 写入 expo-sqlite；Draft 区域淡入。
 3. **用户确认**
    * 草稿行复选框默认选中，可逐条取消。
    * 底部浮条：**全选 / 取消全选** + **确认**（≥ 1 项高亮）。
@@ -237,7 +238,7 @@ CREATE TABLE tasks (
 | 层级     | 选型                             |
 | ------ | ------------------------------ |
 | 客户端    | Expo + React Native            |
-| 本地存储   | WatermelonDB (SQLite)          |
+| 本地存储   | expo-sqlite          |
 | 实时同步   | Supabase Realtime              |
 | 云转写    | OpenAI Whisper API             |
 | LLM 解析 | OpenAI GPT-4o function calling |
@@ -377,7 +378,7 @@ AI-TODO/
 │   ├── openai.ts                    # Whisper / GPT API 封装
 │   └── analytics.ts                 # 埋点（可选）
 │
-├── db/                              # 本地数据库：WatermelonDB
+├── db/                              # 本地数据库：expo-sqlite
 │   ├── database.ts                  # 初始化 DB 实例
 │   ├── schema.ts                    # 表结构定义
 │   └── models/

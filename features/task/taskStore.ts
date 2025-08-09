@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { Q } from '@nozbe/watermelondb';
-import database, { Task } from '../../db/database';
+import database, { Task, taskRepository } from '../../db/database';
+import { ensureDatabaseInitialized } from '../../db/database';
 import { TaskData, TaskStatus, TaskView } from '../../lib/types';
 import { taskSyncService } from './taskSync';
 import reminderService from '../notify/reminderService';
@@ -41,26 +41,9 @@ const useTaskStore = create<TaskStore>((set, get) => ({
   fetchTasks: async () => {
     set({ loading: true, error: null });
     try {
-      const tasks = await database.collections
-        .get<Task>('tasks')
-        .query(Q.where('pending', false))
-        .fetch();
-      
-      const taskData = tasks.map(task => ({
-        id: task.id,
-        title: task.title,
-        dueTs: task.dueTs,
-        urgent: task.urgent,
-        status: task.status,
-        pending: task.pending,
-        completedTs: task.completedTs,
-        pinnedAt: task.pinnedAt,
-        remoteId: task.remoteId,
-        createdTs: task.createdTs,
-        updatedTs: task.updatedTs,
-      }));
-      
-      set({ tasks: taskData, loading: false });
+      await ensureDatabaseInitialized();
+      const tasks = await taskRepository.getAllTasks();
+      set({ tasks, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
     }
@@ -80,21 +63,20 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     }
     
     try {
-      const newTask = await database.write(async () => {
-        return await database.collections.get<Task>('tasks').create(task => {
-          // WatermelonDB generates its own IDs
-          task.title = data.title!.trim();
-          task.dueTs = data.dueTs;
-          task.urgent = data.urgent || false;
-          task.status = data.status ?? TaskStatus.Active;
-          task.pending = data.pending ?? false;
-          task.pinnedAt = data.pinnedAt || 0;
-          task.remoteId = data.remoteId; // Store remote_id if provided
-          task.completedTs = data.completedTs;
-          task.createdTs = data.createdTs || Date.now();
-          task.updatedTs = data.updatedTs || Date.now();
-        });
+      await ensureDatabaseInitialized();
+      const created = await taskRepository.create({
+        title: data.title!.trim(),
+        dueTs: data.dueTs,
+        urgent: data.urgent || false,
+        status: data.status ?? TaskStatus.Active,
+        pending: data.pending ?? false,
+        pinnedAt: data.pinnedAt || null,
+        remoteId: data.remoteId,
+        completedTs: data.completedTs,
+        createdTs: data.createdTs || Date.now(),
+        updatedTs: data.updatedTs || Date.now(),
       });
+      const newTask = Task.fromData(created);
       
       // Sync to Supabase if not skipped
       if (!skipSync) {
@@ -139,20 +121,20 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     }
     
     try {
-      const newTask = await database.write(async () => {
-        return await database.collections.get<Task>('tasks').create(task => {
-          task.title = taskData.title!.trim();
-          task.dueTs = taskData.dueTs;
-          task.urgent = taskData.urgent || false;
-          task.status = taskData.status ?? TaskStatus.Active;
-          task.pending = taskData.pending ?? false;
-          task.pinnedAt = taskData.pinnedAt || 0;
-          task.remoteId = taskData.remoteId; // Store the Supabase ID
-          task.completedTs = taskData.completedTs;
-          task.createdTs = taskData.createdTs || Date.now();
-          task.updatedTs = taskData.updatedTs || Date.now();
-        });
+      await ensureDatabaseInitialized();
+      const created = await taskRepository.create({
+        title: taskData.title!.trim(),
+        dueTs: taskData.dueTs,
+        urgent: taskData.urgent || false,
+        status: taskData.status ?? TaskStatus.Active,
+        pending: taskData.pending ?? false,
+        pinnedAt: taskData.pinnedAt || null,
+        remoteId: taskData.remoteId,
+        completedTs: taskData.completedTs,
+        createdTs: taskData.createdTs || Date.now(),
+        updatedTs: taskData.updatedTs || Date.now(),
       });
+      const newTask = Task.fromData(created);
       
       // Don't sync back to Supabase since this came from there
       // Set reminder if task has due date and is active
@@ -186,21 +168,12 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   updateTask: async (id: string, updates: Partial<TaskData>, skipSync = false) => {
     try {
-      const updatedTask = await database.write(async () => {
-        const task = await database.collections.get<Task>('tasks').find(id);
-        await task.update(t => {
-          if (updates.title !== undefined) t.title = updates.title;
-          if (updates.dueTs !== undefined) t.dueTs = updates.dueTs;
-          if (updates.urgent !== undefined) t.urgent = updates.urgent;
-          if (updates.status !== undefined) t.status = updates.status;
-          if (updates.completedTs !== undefined) t.completedTs = updates.completedTs;
-          if (updates.pending !== undefined) t.pending = updates.pending;
-          if (updates.pinnedAt !== undefined) t.pinnedAt = updates.pinnedAt;
-          if (updates.remoteId !== undefined) t.remoteId = updates.remoteId;
-          t.updatedTs = updates.updatedTs || Date.now();
-        });
-        return task;
-      });
+      await ensureDatabaseInitialized();
+      const updated = await taskRepository.update(id, updates);
+      if (!updated) {
+        throw new Error('Task not found');
+      }
+      const updatedTask = Task.fromData(updated);
       
       // Sync to Supabase if not skipped
       if (!skipSync) {
@@ -234,16 +207,17 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   deleteTask: async (id: string, skipSync = false) => {
     try {
+      await ensureDatabaseInitialized();
+      
       // Cancel reminder before deleting task
       await reminderService.cancelReminder(id);
       
       // Get task to fetch remoteId before deletion
-      const task = await database.collections.get<Task>('tasks').find(id);
-      const remoteId = task.remoteId;
+      const task = await taskRepository.findById(id);
+      if (!task) return;
       
-      await database.write(async () => {
-        await task.markAsDeleted();
-      });
+      const remoteId = task.remoteId;
+      await taskRepository.delete(id);
       
       // Sync deletion to Supabase if not skipped
       if (!skipSync && remoteId) {
@@ -258,15 +232,11 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   toggleTaskStatus: async (id: string) => {
     try {
-      const updatedTask = await database.write(async () => {
-        const task = await database.collections.get<Task>('tasks').find(id);
-        if (task.isCompleted) {
-          await task.markAsActive();
-        } else {
-          await task.markAsCompleted();
-        }
-        return task;
-      });
+      await ensureDatabaseInitialized();
+      const updated = await taskRepository.toggleStatus(id);
+      if (!updated) return;
+      
+      const updatedTask = Task.fromData(updated);
       
       // Sync to Supabase
       await taskSyncService.syncTaskToSupabase(updatedTask);
@@ -298,11 +268,11 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   postponeTask: async (id: string, newDueTs: number) => {
     try {
-      const updatedTask = await database.write(async () => {
-        const task = await database.collections.get<Task>('tasks').find(id);
-        await task.postpone(newDueTs);
-        return task;
-      });
+      await ensureDatabaseInitialized();
+      const updated = await taskRepository.update(id, { dueTs: newDueTs });
+      if (!updated) return;
+      
+      const updatedTask = Task.fromData(updated);
       
       // Sync to Supabase
       await taskSyncService.syncTaskToSupabase(updatedTask);
@@ -334,11 +304,11 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   pinTask: async (id: string) => {
     try {
-      const updatedTask = await database.write(async () => {
-        const task = await database.collections.get<Task>('tasks').find(id);
-        await task.togglePin();
-        return task;
-      });
+      await ensureDatabaseInitialized();
+      const updated = await taskRepository.togglePin(id);
+      if (!updated) return;
+      
+      const updatedTask = Task.fromData(updated);
       
       // Sync to Supabase
       await taskSyncService.syncTaskToSupabase(updatedTask);
@@ -408,19 +378,10 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   getTaskById: async (id: string) => {
     try {
-      const task = await database.collections.get<Task>('tasks').find(id);
+      await ensureDatabaseInitialized();
+      const task = await taskRepository.findById(id);
       if (task && !task.pending) {
-        return {
-          id: task.id,
-          title: task.title,
-          dueTs: task.dueTs,
-          urgent: task.urgent,
-          status: task.status,
-          pending: task.pending,
-          completedTs: task.completedTs,
-          createdTs: task.createdTs,
-          updatedTs: task.updatedTs,
-        };
+        return task;
       }
       return null;
     } catch (error) {
@@ -431,29 +392,8 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   findTaskByTitle: async (title: string) => {
     try {
-      const tasks = await database.collections
-        .get<Task>('tasks')
-        .query(
-          Q.where('pending', false),
-          Q.where('title', Q.like(`%${title}%`))
-        )
-        .fetch();
-      
-      if (tasks.length > 0) {
-        const task = tasks[0];
-        return {
-          id: task.id,
-          title: task.title,
-          dueTs: task.dueTs,
-          urgent: task.urgent,
-          status: task.status,
-          pending: task.pending,
-          completedTs: task.completedTs,
-          createdTs: task.createdTs,
-          updatedTs: task.updatedTs,
-        };
-      }
-      return null;
+      await ensureDatabaseInitialized();
+      return await taskRepository.findByTitle(title);
     } catch (error) {
       console.error('Failed to find task by title:', error);
       return null;
@@ -462,25 +402,22 @@ const useTaskStore = create<TaskStore>((set, get) => ({
 
   clearCompletedTasks: async () => {
     try {
-      const completedTasks = await database.collections
-        .get<Task>('tasks')
-        .query(Q.where('status', TaskStatus.Completed))
-        .fetch();
+      await ensureDatabaseInitialized();
+      const completedTasks = await taskRepository.getTasksByStatus(TaskStatus.Completed);
       
       // Cancel reminders for all completed tasks before deleting
       for (const task of completedTasks) {
         await reminderService.cancelReminder(task.id);
       }
       
-      await database.write(async () => {
-        for (const task of completedTasks) {
-          await task.markAsDeleted();
-        }
-      });
+      // Delete all completed tasks
+      await taskRepository.clearCompleted();
       
       // Sync deletions to Supabase
       for (const task of completedTasks) {
-        await taskSyncService.deleteTaskFromSupabase(task.id);
+        if (task.remoteId) {
+          await taskSyncService.deleteTaskFromSupabase(task.id, task.remoteId);
+        }
       }
       
       await get().fetchTasks();
@@ -492,16 +429,14 @@ const useTaskStore = create<TaskStore>((set, get) => ({
   
   cleanupOldDoneTasks: async () => {
     try {
+      await ensureDatabaseInitialized();
       const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
       
-      // Find tasks completed more than 30 days ago
-      const oldCompletedTasks = await database.collections
-        .get<Task>('tasks')
-        .query(
-          Q.where('status', TaskStatus.Completed),
-          Q.where('completed_ts', Q.lt(thirtyDaysAgo))
-        )
-        .fetch();
+      // Get all done tasks to check which ones are old
+      const doneTasks = await taskRepository.getDoneTasks();
+      const oldCompletedTasks = doneTasks.filter(task => 
+        task.completedTs && task.completedTs < thirtyDaysAgo
+      );
       
       if (oldCompletedTasks.length === 0) {
         console.log('No old completed tasks to cleanup');
@@ -515,16 +450,14 @@ const useTaskStore = create<TaskStore>((set, get) => ({
         await reminderService.cancelReminder(task.id);
       }
       
-      // Delete old tasks
-      await database.write(async () => {
-        for (const task of oldCompletedTasks) {
-          await task.markAsDeleted();
-        }
-      });
+      // Delete old tasks using the repository method
+      await taskRepository.cleanupOldDoneTasks();
       
       // Sync deletions to Supabase
       for (const task of oldCompletedTasks) {
-        await taskSyncService.deleteTaskFromSupabase(task.id);
+        if (task.remoteId) {
+          await taskSyncService.deleteTaskFromSupabase(task.id, task.remoteId);
+        }
       }
       
       await get().fetchTasks();
