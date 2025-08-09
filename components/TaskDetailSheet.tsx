@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import BottomSheet from './BottomSheet';
 import DateTimeButton from './DateTimeButton';
 import { TaskData } from '../lib/types';
@@ -142,29 +142,15 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        snapPoints={[400, 600]}  // Use fixed pixel values instead of percentages
+        snapPoints={['75%', '90%']}
         onClose={handleClose}
         enablePanDownToClose={true}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoidingView}
+        <BottomSheetScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <ScrollView 
-            style={styles.container}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.header}>
-              <TouchableOpacity
-                onPress={() => bottomSheetRef.current?.dismiss()}
-                style={styles.closeButton}
-              >
-                <Text style={styles.closeIcon}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
             <TextInput
               style={styles.titleInput}
               placeholder="添加任务..."
@@ -174,7 +160,6 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
               numberOfLines={2}
               autoFocus
               returnKeyType="done"
-              blurOnSubmit={true}
             />
 
             <View style={styles.controls}>
@@ -217,38 +202,17 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
                 <Text style={styles.deleteText}>删除任务</Text>
               </TouchableOpacity>
             )}
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </BottomSheetScrollView>
       </BottomSheet>
     );
   }
 );
 
 const styles = StyleSheet.create({
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-  },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 20,
-  },
-  closeButton: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeIcon: {
-    fontSize: 20,
-    color: '#8E8E93',
+    paddingTop: 20,
+    paddingBottom: 100, // Extra padding for keyboard
   },
   titleInput: {
     fontSize: 18,
