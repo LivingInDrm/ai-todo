@@ -6,9 +6,18 @@ module.exports = function (api) {
   
   return {
     presets: ['babel-preset-expo'],
-    plugins: isTest ? [] : [
-      // Only include reanimated plugin when not testing
-      'react-native-reanimated/plugin'
+    plugins: [
+      [
+        'module-resolver',
+        {
+          root: ['./'],
+          alias: {
+            '@ui': './components/ui',
+            '@lib': './lib'
+          }
+        }
+      ],
+      ...(isTest ? [] : ['react-native-reanimated/plugin'])
     ]
   };
 };

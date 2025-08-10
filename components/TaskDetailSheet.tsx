@@ -1,7 +1,6 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -14,6 +13,8 @@ import BottomSheet from './BottomSheet';
 import DateTimeButton from './DateTimeButton';
 import { TaskData } from '../lib/types';
 import { debounce } from 'lodash';
+import { Text, Button } from '@ui';
+import { useThemeValues } from '@lib/theme/ThemeProvider';
 
 interface TaskDetailSheetProps {
   task?: TaskData;
@@ -28,6 +29,7 @@ export interface TaskDetailSheetRef {
 
 const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
   ({ task, onSave, onDelete }, ref) => {
+    const theme = useThemeValues();
     const bottomSheetRef = useRef<BottomSheetModal>(null);
     const [title, setTitle] = useState('');
     const [dueDate, setDueDate] = useState<Date | undefined>();
@@ -147,13 +149,32 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
         enablePanDownToClose={true}
       >
         <BottomSheetScrollView 
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingHorizontal: theme.spacingGroups.padding.sheet,
+              paddingTop: theme.spacing.xl,
+              paddingBottom: theme.spacing.xl * 5, // Extra padding for keyboard
+            }
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
             <TextInput
-              style={styles.titleInput}
+              style={[
+                styles.titleInput,
+                {
+                  fontSize: theme.fontSize.l,
+                  color: theme.colors.text.primary,
+                  paddingVertical: theme.spacing.m,
+                  paddingHorizontal: theme.spacing.l,
+                  backgroundColor: theme.colors.bg.subtle,
+                  borderRadius: theme.radius.m,
+                  marginBottom: theme.spacing.xl,
+                }
+              ]}
               placeholder="添加任务..."
+              placeholderTextColor={theme.colors.text.muted}
               value={title}
               onChangeText={setTitle}
               multiline
@@ -162,7 +183,7 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
               returnKeyType="done"
             />
 
-            <View style={styles.controls}>
+            <View style={{ marginTop: theme.spacing.m }}>
               <DateTimeButton
                 value={dueDate}
                 onChange={setDueDate}
@@ -172,17 +193,24 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
               <TouchableOpacity
                 style={[
                   styles.urgentButton,
-                  isUrgent && styles.urgentButtonActive,
+                  {
+                    backgroundColor: theme.colors.bg.subtle,
+                    borderWidth: isUrgent ? 2 : 0,
+                    borderColor: isUrgent ? theme.colors.feedback.danger : undefined,
+                    borderRadius: theme.radius.m,
+                    paddingHorizontal: theme.spacing.m,
+                    paddingVertical: theme.spacing.m,
+                    marginTop: theme.spacing.s,
+                  }
                 ]}
                 onPress={toggleUrgent}
                 activeOpacity={0.7}
               >
                 <Text style={styles.urgentIcon}>❗️</Text>
                 <Text
-                  style={[
-                    styles.urgentText,
-                    isUrgent && styles.urgentTextActive,
-                  ]}
+                  variant="body"
+                  color={isUrgent ? 'danger' : 'primary'}
+                  style={{ fontWeight: isUrgent ? theme.fontWeight.medium : theme.fontWeight.regular }}
                 >
                   {isUrgent ? '紧急' : '标记紧急'}
                 </Text>
@@ -190,17 +218,19 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
             </View>
 
             {currentTask && !isNewTask && onDelete && (
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => {
-                  isDeleting.current = true;
-                  onDelete(currentTask.id);
-                  bottomSheetRef.current?.dismiss();
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.deleteText}>删除任务</Text>
-              </TouchableOpacity>
+              <View style={{ marginTop: theme.spacing.xl * 2 }}>
+                <Button
+                  variant="danger"
+                  onPress={() => {
+                    isDeleting.current = true;
+                    onDelete(currentTask.id);
+                    bottomSheetRef.current?.dismiss();
+                  }}
+                  fullWidth
+                >
+                  删除任务
+                </Button>
+              </View>
             )}
           </BottomSheetScrollView>
       </BottomSheet>
@@ -210,55 +240,18 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 100, // Extra padding for keyboard
+    // Dynamic styles moved to inline
   },
   titleInput: {
-    fontSize: 18,
-    color: '#000',
     minHeight: 60,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  controls: {
-    marginTop: 10,
   },
   urgentButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 8,
-  },
-  urgentButtonActive: {
-    backgroundColor: '#FFEBE5',
   },
   urgentIcon: {
     fontSize: 16,
     marginRight: 8,
-  },
-  urgentText: {
-    fontSize: 16,
-    color: '#000',
-  },
-  urgentTextActive: {
-    color: '#FF3B30',
-    fontWeight: '500',
-  },
-  deleteButton: {
-    marginTop: 30,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  deleteText: {
-    fontSize: 16,
-    color: '#FF3B30',
   },
 });
 

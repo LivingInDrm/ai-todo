@@ -3,6 +3,14 @@
   "compilerOptions": {
     "strict": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ui": ["components/ui/index"],
+      "@ui/*": ["components/ui/*"],
+      "@lib/*": ["lib/*"],
+      "@lib/theme": ["lib/theme/index"],
+      "@lib/theme/*": ["lib/theme/*"]
+    }
   }
 }

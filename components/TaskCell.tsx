@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
@@ -9,6 +8,8 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { TaskData } from '../lib/types';
+import { Text, Badge } from '@ui';
+import { useThemeValues } from '@lib/theme/ThemeProvider';
 
 interface TaskCellProps {
   task: TaskData;
@@ -29,6 +30,7 @@ const TaskCell: React.FC<TaskCellProps> = ({
   onSwipeLeft,
   onMorePress,
 }) => {
+  const theme = useThemeValues();
   const isCompleted = task.status === 1;
   const screenWidth = Dimensions.get('window').width;
   const swipeThreshold = screenWidth * 0.3; // 30% of screen width
@@ -57,7 +59,14 @@ const TaskCell: React.FC<TaskCellProps> = ({
     return (
       <Animated.View style={{ transform: [{ translateX }] }}>
         <TouchableOpacity
-          style={[styles.actionButton, styles.moreButton]}
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor: theme.colors.text.secondary,
+              width: 80,
+              height: '100%',
+            }
+          ]}
           onPress={onMorePress}
         >
           <Text style={styles.actionText}>⋯</Text>
@@ -68,7 +77,14 @@ const TaskCell: React.FC<TaskCellProps> = ({
 
   const renderLeftActions = () => {
     return (
-      <View style={[styles.actionButton, styles.completeButton]}>
+      <View style={[
+        styles.actionButton,
+        {
+          backgroundColor: theme.colors.feedback.success,
+          width: 80,
+          height: '100%',
+        }
+      ]}>
         <Text style={styles.actionText}>{isCompleted ? '↺' : '✓'}</Text>
       </View>
     );
@@ -92,24 +108,62 @@ const TaskCell: React.FC<TaskCellProps> = ({
       rightThreshold={swipeThreshold} // Trigger at 30% of screen width
     >
       <TouchableOpacity
-        style={styles.container}
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.colors.bg.surface,
+            minHeight: 60,
+          }
+        ]}
         onPress={onPress}
         activeOpacity={0.7}
       >
-        <View style={styles.content}>
+        <View style={[
+          styles.content,
+          {
+            paddingHorizontal: theme.spacing.l,
+            paddingVertical: theme.spacing.m,
+          }
+        ]}>
           {task.urgent && !isCompleted && (
-            <View style={styles.urgentIndicator} />
+            <View style={[
+              styles.urgentIndicator,
+              {
+                backgroundColor: theme.colors.feedback.danger,
+                width: 3,
+              }
+            ]} />
           )}
           
-          <View style={styles.checkbox}>
-            {isCompleted && <Text style={styles.checkmark}>✓</Text>}
+          <View style={[
+            styles.checkbox,
+            {
+              borderColor: isCompleted 
+                ? theme.colors.feedback.success 
+                : theme.colors.border.default,
+              marginRight: theme.spacing.m,
+            }
+          ]}>
+            {isCompleted && (
+              <Text 
+                style={{ 
+                  color: theme.colors.feedback.success,
+                  fontSize: 14,
+                  fontWeight: theme.fontWeight.bold 
+                }}
+              >
+                ✓
+              </Text>
+            )}
           </View>
           
           <Text
+            variant="body"
+            color={isCompleted ? 'muted' : 'primary'}
             style={[
               styles.title,
               isCompleted && styles.completedTitle,
-              task.urgent && !isCompleted && styles.urgentTitle,
+              task.urgent && !isCompleted && { fontWeight: theme.fontWeight.medium },
             ]}
             numberOfLines={2}
             ellipsizeMode="tail"
@@ -118,15 +172,27 @@ const TaskCell: React.FC<TaskCellProps> = ({
           </Text>
           
           {task.dueTs && (
-            <Text style={[styles.time, isCompleted && styles.completedTime]}>
+            <Text 
+              variant="caption" 
+              color={isCompleted ? 'muted' : 'secondary'}
+              style={{ marginLeft: theme.spacing.s }}
+            >
               {formatTime(task.dueTs)}
             </Text>
           )}
         </View>
         
         {isDraft && (
-          <View style={styles.draftIndicator}>
-            <Text style={styles.draftText}>草稿</Text>
+          <View style={[
+            styles.draftIndicator,
+            {
+              top: theme.spacing.xs,
+              right: theme.spacing.l,
+            }
+          ]}>
+            <Badge variant="primary" size="sm">
+              草稿
+            </Badge>
           </View>
         )}
       </TouchableOpacity>
@@ -136,71 +202,36 @@ const TaskCell: React.FC<TaskCellProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    minHeight: 60,
     justifyContent: 'center',
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   urgentIndicator: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    width: 3,
-    backgroundColor: '#FF3B30',
   },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#C7C7CC',
-    marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkmark: {
-    color: '#34C759',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
   title: {
     flex: 1,
-    fontSize: 16,
-    color: '#000',
     lineHeight: 22,
   },
   completedTitle: {
-    color: '#8E8E93',
     textDecorationLine: 'line-through',
-  },
-  urgentTitle: {
-    fontWeight: '500',
-  },
-  time: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginLeft: 8,
-  },
-  completedTime: {
-    color: '#C7C7CC',
   },
   actionButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
-    height: '100%',
-  },
-  completeButton: {
-    backgroundColor: '#34C759',
-  },
-  moreButton: {
-    backgroundColor: '#8E8E93',
   },
   actionText: {
     color: '#fff',
@@ -209,16 +240,6 @@ const styles = StyleSheet.create({
   },
   draftIndicator: {
     position: 'absolute',
-    top: 4,
-    right: 16,
-    backgroundColor: '#E5F3FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  draftText: {
-    fontSize: 11,
-    color: '#007AFF',
   },
 });
 

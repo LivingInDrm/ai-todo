@@ -1,7 +1,6 @@
 import React, { forwardRef, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
@@ -10,6 +9,8 @@ import BottomSheetLib, {
   BottomSheetModal,
   BottomSheetModalProvider,
 } from '@gorhom/bottom-sheet';
+import { Text } from '@ui';
+import { useThemeValues } from '@lib/theme/ThemeProvider';
 
 interface BottomSheetProps {
   children: React.ReactNode;
@@ -30,6 +31,8 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
     },
     ref
   ) => {
+    const theme = useThemeValues();
+    
     const renderBackdrop = useCallback(
       (props: any) => (
         <BottomSheetBackdrop
@@ -58,8 +61,16 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
         backdropComponent={renderBackdrop}
         enablePanDownToClose={enablePanDownToClose}
         onChange={handleSheetChanges}
-        handleIndicatorStyle={styles.handleIndicator}
-        backgroundStyle={styles.background}
+        handleIndicatorStyle={{
+          backgroundColor: theme.colors.border.default,
+          width: 36,
+          height: 5,
+        }}
+        backgroundStyle={{
+          backgroundColor: theme.colors.bg.elevated,
+          borderTopLeftRadius: theme.radiusPresets.sheet,
+          borderTopRightRadius: theme.radiusPresets.sheet,
+        }}
         android_keyboardInputMode="adjustResize"  // For Android keyboard handling
         enableDynamicSizing={false}  // Disable dynamic sizing
         keyboardBehavior="extend"  // Extend the sheet when keyboard appears
@@ -70,17 +81,29 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
       >
         {title ? (
           <View style={styles.container}>
-            <View style={styles.header}>
-              <Text style={styles.title}>{title}</Text>
+            <View style={[styles.header, {
+              paddingHorizontal: theme.spacingGroups.padding.sheet,
+              paddingVertical: theme.spacing.l,
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: theme.colors.border.subtle,
+            }]}>
+              <Text variant="heading" style={{ fontWeight: theme.fontWeight.semibold }}>
+                {title}
+              </Text>
               <TouchableOpacity
                 onPress={() => {
                   if (ref && 'current' in ref && ref.current) {
                     ref.current.dismiss();
                   }
                 }}
-                style={styles.closeButton}
+                style={[styles.closeButton, {
+                  width: theme.spacing.xl,
+                  height: theme.spacing.xl,
+                }]}
               >
-                <Text style={styles.closeIcon}>✕</Text>
+                <Text variant="body" color="secondary" style={{ fontSize: 20 }}>
+                  ✕
+                </Text>
               </TouchableOpacity>
             </View>
             <View style={styles.content}>{children}</View>
@@ -103,16 +126,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 999,
   },
-  background: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  handleIndicator: {
-    backgroundColor: '#E5E5EA',
-    width: 36,
-    height: 5,
-  },
   container: {
     flex: 1,
     paddingBottom: 20,
@@ -121,25 +134,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
   },
   closeButton: {
-    width: 30,
-    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeIcon: {
-    fontSize: 20,
-    color: '#8E8E93',
   },
   content: {
     flex: 1,

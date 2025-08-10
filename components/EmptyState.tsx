@@ -1,17 +1,19 @@
 import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
-  Image,
 } from 'react-native';
 import { TaskView } from '../lib/types';
+import { Text } from '@ui';
+import { useThemeValues } from '@lib/theme/ThemeProvider';
 
 interface EmptyStateProps {
   view: TaskView;
 }
 
 const EmptyState: React.FC<EmptyStateProps> = ({ view }) => {
+  const theme = useThemeValues();
+  
   const getContent = () => {
     switch (view) {
       case TaskView.Focus:
@@ -44,11 +46,30 @@ const EmptyState: React.FC<EmptyStateProps> = ({ view }) => {
   const content = getContent();
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      {
+        paddingHorizontal: theme.spacing.xl * 2,
+        paddingBottom: theme.spacing.xl * 5,
+      }
+    ]}>
       <Text style={styles.emoji}>{content.emoji}</Text>
-      <Text style={styles.title}>{content.title}</Text>
+      <Text 
+        variant="heading" 
+        color="primary"
+        align="center"
+        style={{ marginBottom: theme.spacing.s }}
+      >
+        {content.title}
+      </Text>
       {content.subtitle ? (
-        <Text style={styles.subtitle}>{content.subtitle}</Text>
+        <Text 
+          variant="caption" 
+          color="secondary"
+          align="center"
+        >
+          {content.subtitle}
+        </Text>
       ) : null}
     </View>
   );
@@ -59,24 +80,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingBottom: 100,
   },
   emoji: {
     fontSize: 64,
     marginBottom: 20,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#8E8E93',
-    textAlign: 'center',
   },
 });
 

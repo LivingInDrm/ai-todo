@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   TouchableOpacity,
-  Text,
   StyleSheet,
   Animated,
   View,
   Alert,
 } from 'react-native';
 import recorder from '../features/voice/recorder';
+import { Text } from '@ui';
+import { useThemeValues } from '@lib/theme/ThemeProvider';
 
 interface VoiceButtonProps {
   onRecordingComplete?: (audioUri: string) => void;
@@ -18,6 +19,7 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
   onRecordingComplete,
   disabled = false,
 }) => {
+  const theme = useThemeValues();
   const [isRecording, setIsRecording] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -95,8 +97,15 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
       <TouchableOpacity
         style={[
           styles.button,
-          disabled && styles.buttonDisabled,
-          isRecording && styles.buttonRecording,
+          {
+            backgroundColor: disabled 
+              ? theme.colors.border.subtle 
+              : isRecording 
+                ? theme.colors.feedback.danger 
+                : theme.colors.accent.primary,
+            ...theme.elevationPresets.floatingButton,
+            opacity: disabled ? 0.5 : 1,
+          }
         ]}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -106,8 +115,18 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
         <Text style={styles.icon}>🎤</Text>
       </TouchableOpacity>
       {isRecording && (
-        <View style={styles.recordingIndicator}>
-          <View style={styles.recordingDot} />
+        <View style={[
+          styles.recordingIndicator,
+          {
+            backgroundColor: theme.colors.feedback.danger,
+          }
+        ]}>
+          <View style={[
+            styles.recordingDot,
+            {
+              backgroundColor: theme.colors.text.inverse,
+            }
+          ]} />
         </View>
       )}
     </Animated.View>
@@ -123,24 +142,8 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  buttonDisabled: {
-    backgroundColor: '#C7C7CC',
-    opacity: 0.5,
-  },
-  buttonRecording: {
-    backgroundColor: '#FF3B30',
   },
   icon: {
     fontSize: 24,
@@ -152,7 +155,6 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#FF3B30',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -160,7 +162,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#fff',
   },
 });
 

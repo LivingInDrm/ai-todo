@@ -1,12 +1,13 @@
 import React, { forwardRef, useRef, useImperativeHandle } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import BottomSheet from './BottomSheet';
+import { Text } from '@ui';
+import { useThemeValues } from '@lib/theme/ThemeProvider';
 
 interface MoreActionSheetProps {
   onPostpone: (option: 'tonight' | 'tomorrow' | 'weekend' | 'custom') => void;
@@ -22,6 +23,7 @@ export interface MoreActionSheetRef {
 
 const MoreActionSheet = forwardRef<MoreActionSheetRef, MoreActionSheetProps>(
   ({ onPostpone, onPin, onDelete, showPin = false }, ref) => {
+    const theme = useThemeValues();
     const bottomSheetRef = useRef<BottomSheetModal>(null);
 
     useImperativeHandle(ref, () => ({
@@ -43,69 +45,123 @@ const MoreActionSheet = forwardRef<MoreActionSheetRef, MoreActionSheetProps>(
       bottomSheetRef.current?.dismiss();
     };
 
+    // Action row component for reusability
+    const ActionRow = ({ 
+      icon, 
+      text, 
+      onPress, 
+      danger = false 
+    }: { 
+      icon: string; 
+      text: string; 
+      onPress: () => void; 
+      danger?: boolean;
+    }) => (
+      <TouchableOpacity
+        style={[
+          styles.actionButton,
+          {
+            paddingVertical: theme.spacing.m,
+            paddingHorizontal: theme.spacing.xs,
+          }
+        ]}
+        onPress={onPress}
+      >
+        <Text style={styles.actionIcon}>{icon}</Text>
+        <Text 
+          variant="body" 
+          color={danger ? 'danger' : 'primary'}
+        >
+          {text}
+        </Text>
+      </TouchableOpacity>
+    );
+
+    const Divider = () => (
+      <View style={{
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: theme.colors.border.default,
+        marginVertical: theme.spacing.s,
+      }} />
+    );
+
     return (
       <BottomSheet
         ref={bottomSheetRef}
         snapPoints={['50%']}  // Back to what was working
         enablePanDownToClose={true}
       >
-        <View style={styles.container}>
-          <Text style={styles.title}>选择操作</Text>
+        <View style={[styles.container, {
+          paddingHorizontal: theme.spacingGroups.padding.sheet,
+          paddingTop: theme.spacing.m,
+          paddingBottom: theme.spacing.xl,
+        }]}>
+          <Text 
+            variant="heading" 
+            align="center"
+            style={{ 
+              marginTop: theme.spacing.l,
+              marginBottom: theme.spacing.xl,
+            }}
+          >
+            选择操作
+          </Text>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>延后至</Text>
-            <TouchableOpacity
-              style={styles.actionButton}
+          <View style={{ marginBottom: theme.spacing.m }}>
+            <Text 
+              variant="caption" 
+              color="secondary"
+              style={{ 
+                marginBottom: theme.spacing.s,
+                marginLeft: theme.spacing.xs,
+              }}
+            >
+              延后至
+            </Text>
+            
+            <ActionRow
+              icon="🌙"
+              text="今晚"
               onPress={() => handleAction(() => onPostpone('tonight'))}
-            >
-              <Text style={styles.actionIcon}>🌙</Text>
-              <Text style={styles.actionText}>今晚</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
+            />
+            <ActionRow
+              icon="☀️"
+              text="明天"
               onPress={() => handleAction(() => onPostpone('tomorrow'))}
-            >
-              <Text style={styles.actionIcon}>☀️</Text>
-              <Text style={styles.actionText}>明天</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
+            />
+            <ActionRow
+              icon="📅"
+              text="本周末"
               onPress={() => handleAction(() => onPostpone('weekend'))}
-            >
-              <Text style={styles.actionIcon}>📅</Text>
-              <Text style={styles.actionText}>本周末</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
+            />
+            <ActionRow
+              icon="🗓"
+              text="自定义"
               onPress={() => handleAction(() => onPostpone('custom'))}
-            >
-              <Text style={styles.actionIcon}>🗓</Text>
-              <Text style={styles.actionText}>自定义</Text>
-            </TouchableOpacity>
+            />
           </View>
 
-          <View style={styles.separator} />
+          <Divider />
 
           {showPin && onPin && (
             <>
-              <TouchableOpacity
-                style={styles.actionButton}
+              <ActionRow
+                icon="📌"
+                text="置顶"
                 onPress={() => handleAction(onPin)}
-              >
-                <Text style={styles.actionIcon}>📌</Text>
-                <Text style={styles.actionText}>置顶</Text>
-              </TouchableOpacity>
-              <View style={styles.separator} />
+              />
+              <Divider />
             </>
           )}
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => handleAction(onDelete)}
-          >
-            <Text style={styles.actionIcon}>🗑</Text>
-            <Text style={[styles.actionText, styles.deleteText]}>删除</Text>
-          </TouchableOpacity>
+          <View style={{ marginTop: theme.spacing.s }}>
+            <ActionRow
+              icon="🗑"
+              text="删除"
+              onPress={() => handleAction(onDelete)}
+              danger
+            />
+          </View>
         </View>
       </BottomSheet>
     );
@@ -114,53 +170,17 @@ const MoreActionSheet = forwardRef<MoreActionSheetRef, MoreActionSheetProps>(
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 30,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    marginTop: 15,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginBottom: 8,
-    marginLeft: 4,
+    // Dynamic styles moved to inline
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
   },
   actionIcon: {
     fontSize: 20,
     marginRight: 12,
     width: 24,
     textAlign: 'center',
-  },
-  actionText: {
-    fontSize: 16,
-    color: '#000',
-  },
-  deleteButton: {
-    marginTop: 8,
-  },
-  deleteText: {
-    color: '#FF3B30',
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E5EA',
-    marginVertical: 8,
   },
 });
 

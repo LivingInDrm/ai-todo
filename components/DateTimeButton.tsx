@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Text, Button } from '@ui';
+import { useThemeValues } from '@lib/theme/ThemeProvider';
 
 interface DateTimeButtonProps {
   value?: Date;
@@ -19,6 +20,7 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
   onChange,
   mode = 'datetime',
 }) => {
+  const theme = useThemeValues();
   const [showPicker, setShowPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false); // For Android two-step selection
   const [tempDate, setTempDate] = useState(value || new Date());
@@ -99,36 +101,76 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        style={styles.button}
+        style={[
+          styles.button,
+          {
+            backgroundColor: theme.colors.bg.subtle,
+            borderRadius: theme.radius.m,
+            paddingHorizontal: theme.spacing.m,
+            paddingVertical: theme.spacing.m,
+          }
+        ]}
         onPress={handlePress}
         activeOpacity={0.7}
       >
         <Text style={styles.icon}>🕒</Text>
-        <Text style={styles.label}>
+        <Text variant="body" color="primary">
           {value ? formatDate(value) : '添加日期'}
         </Text>
       </TouchableOpacity>
       
       {value && (
         <TouchableOpacity
-          style={styles.clearButton}
+          style={[
+            styles.clearButton,
+            {
+              width: theme.spacing.xl,
+              height: theme.spacing.xl,
+              marginLeft: theme.spacing.s,
+            }
+          ]}
           onPress={handleClear}
           activeOpacity={0.7}
         >
-          <Text style={styles.clearIcon}>✕</Text>
+          <Text variant="body" color="secondary" style={{ fontSize: 18 }}>
+            ✕
+          </Text>
         </TouchableOpacity>
       )}
       
       {showPicker && (
         <>
           {Platform.OS === 'ios' && (
-            <View style={styles.pickerContainer}>
-              <View style={styles.pickerHeader}>
+            <View style={[
+              styles.pickerContainer,
+              {
+                backgroundColor: theme.colors.bg.surface,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: theme.colors.border.default,
+                marginTop: theme.spacing.m,
+                marginHorizontal: -theme.spacingGroups.padding.sheet,
+              }
+            ]}>
+              <View style={[
+                styles.pickerHeader,
+                {
+                  paddingHorizontal: theme.spacing.l,
+                  paddingVertical: theme.spacing.m,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: theme.colors.border.subtle,
+                }
+              ]}>
                 <TouchableOpacity onPress={() => setShowPicker(false)}>
-                  <Text style={styles.pickerButton}>取消</Text>
+                  <Text variant="body" color="secondary">
+                    取消
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleDone}>
-                  <Text style={[styles.pickerButton, styles.doneButton]}>
+                  <Text 
+                    variant="body" 
+                    color="link"
+                    style={{ fontWeight: theme.fontWeight.semibold }}
+                  >
                     完成
                   </Text>
                 </TouchableOpacity>
@@ -175,53 +217,22 @@ const styles = StyleSheet.create({
   button: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
     flex: 1,
   },
   icon: {
     fontSize: 16,
     marginRight: 8,
   },
-  label: {
-    fontSize: 16,
-    color: '#000',
-  },
   clearButton: {
-    width: 30,
-    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
-  },
-  clearIcon: {
-    fontSize: 18,
-    color: '#8E8E93',
   },
   pickerContainer: {
-    backgroundColor: '#fff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5EA',
-    marginTop: 10,
-    marginHorizontal: -20,
+    // Dynamic styles moved to inline
   },
   pickerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E5EA',
-  },
-  pickerButton: {
-    fontSize: 16,
-    color: '#8E8E93',
-  },
-  doneButton: {
-    color: '#007AFF',
-    fontWeight: '600',
   },
 });
 

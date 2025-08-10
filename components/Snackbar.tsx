@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Animated,
 } from 'react-native';
+import { Text } from '@ui';
+import { useThemeValues } from '@lib/theme/ThemeProvider';
 
 interface SnackbarProps {
   visible: boolean;
@@ -24,6 +25,7 @@ const Snackbar: React.FC<SnackbarProps> = ({
   duration = 3000,
   onDismiss,
 }) => {
+  const theme = useThemeValues();
   const translateY = useRef(new Animated.Value(100)).current;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -83,19 +85,39 @@ const Snackbar: React.FC<SnackbarProps> = ({
       style={[
         styles.container,
         {
+          backgroundColor: theme.colors.bg.elevated,
+          borderRadius: theme.radius.m,
+          paddingHorizontal: theme.spacing.l,
+          paddingVertical: theme.spacing.m + 2,
+          ...theme.elevationPresets.snackbar,
           transform: [{ translateY }],
         },
       ]}
     >
-      <Text style={styles.message} numberOfLines={2}>
+      <Text 
+        variant="body" 
+        color="inverse"
+        style={styles.message} 
+        numberOfLines={2}
+      >
         {message}
       </Text>
       {actionText && (
         <TouchableOpacity
           onPress={handleActionPress}
           activeOpacity={0.7}
+          style={{
+            paddingHorizontal: theme.spacing.s,
+            paddingVertical: theme.spacing.xs,
+          }}
         >
-          <Text style={styles.actionText}>{actionText}</Text>
+          <Text 
+            variant="body" 
+            color="link"
+            style={{ fontWeight: theme.fontWeight.semibold }}
+          >
+            {actionText}
+          </Text>
         </TouchableOpacity>
       )}
     </Animated.View>
@@ -108,34 +130,13 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 16,
     right: 16,
-    backgroundColor: '#2C2C2E',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   message: {
     flex: 1,
-    fontSize: 14,
-    color: '#fff',
     marginRight: 8,
-  },
-  actionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#007AFF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
   },
 });
 
