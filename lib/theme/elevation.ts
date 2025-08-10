@@ -66,27 +66,27 @@ export const elevation: Record<keyof typeof iosShadows, ElevationStyle> = {
   none: {},
   xs: Platform.select({
     ios: iosShadows.xs,
-    android: androidElevations.xs,
+    android: androidElevations.xs as any,
     default: {},
   }) as ElevationStyle,
   s: Platform.select({
     ios: iosShadows.s,
-    android: androidElevations.s,
+    android: androidElevations.s as any,
     default: {},
   }) as ElevationStyle,
   m: Platform.select({
     ios: iosShadows.m,
-    android: androidElevations.m,
+    android: androidElevations.m as any,
     default: {},
   }) as ElevationStyle,
   l: Platform.select({
     ios: iosShadows.l,
-    android: androidElevations.l,
+    android: androidElevations.l as any,
     default: {},
   }) as ElevationStyle,
   xl: Platform.select({
     ios: iosShadows.xl,
-    android: androidElevations.xl,
+    android: androidElevations.xl as any,
     default: {},
   }) as ElevationStyle,
 };

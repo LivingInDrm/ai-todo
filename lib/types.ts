@@ -1,7 +1,7 @@
 export interface TaskData {
   id: string;
   title: string;
-  dueTs?: number;
+  dueTs?: number | null;
   urgent: boolean;
   status: number;
   pending: boolean;

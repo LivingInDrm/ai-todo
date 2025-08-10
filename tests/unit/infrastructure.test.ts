@@ -19,18 +19,18 @@ describe('Test Infrastructure Verification', () => {
     it('should create a test database', async () => {
       const database = await createTestDatabase();
       expect(database).toBeDefined();
-      expect(database.collections).toBeDefined();
-      expect(database.collections.get('tasks')).toBeDefined();
+      expect((database as any).collections).toBeDefined();
+      expect((database as any).collections.get('tasks')).toBeDefined();
     });
 
     it('should have mock database methods', async () => {
       const database = await createTestDatabase();
       
       expect(database).toBeDefined();
-      expect(typeof database.write).toBe('function');
-      expect(database.collections).toBeDefined();
-      expect(typeof database.collections.get).toBe('function');
-      expect(typeof database.unsafeResetDatabase).toBe('function');
+      expect(typeof (database as any).write).toBe('function');
+      expect((database as any).collections).toBeDefined();
+      expect(typeof (database as any).collections.get).toBe('function');
+      expect(typeof (database as any).unsafeResetDatabase).toBe('function');
     });
 
     it('should create mock tasks', async () => {

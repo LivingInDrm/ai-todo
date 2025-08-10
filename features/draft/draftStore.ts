@@ -377,7 +377,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
         for (const draft of selectedDrafts) {
           if (draft.operation === 'add') {
             // For add operations, confirm the draft task itself
-            const task = await database.collections.get<Task>('tasks').find(draft.id);
+            const task = await database.collections.get('tasks').find(draft.id) as Task;
             await task.confirmDraft();
             confirmedIds.push(draft.id);
             undoOperations.push({ type: 'add', taskId: draft.id });
@@ -408,7 +408,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
             await taskSyncService.syncTaskToSupabase(task);
           } else if (draft.targetTaskId) {
             // For update/complete/delete, operate on the target task
-            const targetTask = await database.collections.get<Task>('tasks').find(draft.targetTaskId);
+            const targetTask = await database.collections.get('tasks').find(draft.targetTaskId) as Task;
             
             switch (draft.operation) {
               case 'update':
@@ -510,14 +510,14 @@ const useDraftStore = create<DraftStore>((set, get) => ({
             }
             
             // Delete the draft after processing
-            const draftTask = await database.collections.get<Task>('tasks').find(draft.id);
+            const draftTask = await database.collections.get('tasks').find(draft.id) as Task;
             await draftTask.markAsDeleted();
           }
         }
         
         // Delete unselected drafts
         for (const id of unselectedIds) {
-          const task = await database.collections.get<Task>('tasks').find(id);
+          const task = await database.collections.get('tasks').find(id) as Task;
           await task.markAsDeleted();
         }
       });
@@ -550,7 +550,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
       await database.write(async () => {
         if (draft.operation === 'add') {
           // For add operations, confirm the draft task itself
-          const task = await database.collections.get<Task>('tasks').find(draft.id);
+          const task = await database.collections.get('tasks').find(draft.id) as Task;
           await task.confirmDraft();
           undoOperations.push({ type: 'add', taskId: draft.id });
           
@@ -579,7 +579,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
           await taskSyncService.syncTaskToSupabase(task);
         } else if (draft.targetTaskId) {
           // For update/complete/delete, operate on the target task
-          const targetTask = await database.collections.get<Task>('tasks').find(draft.targetTaskId);
+          const targetTask = await database.collections.get('tasks').find(draft.targetTaskId);
           
           switch (draft.operation) {
             case 'update':
@@ -678,7 +678,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
           }
           
           // Delete the draft after processing
-          const draftTask = await database.collections.get<Task>('tasks').find(draft.id);
+          const draftTask = await database.collections.get('tasks').find(draft.id);
           await draftTask.markAsDeleted();
         }
       });
@@ -703,7 +703,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
     try {
       await database.write(async () => {
         for (const id of unselectedIds) {
-          const task = await database.collections.get<Task>('tasks').find(id);
+          const task = await database.collections.get('tasks').find(id) as Task;
           await task.markAsDeleted();
         }
       });
@@ -723,7 +723,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
       await database.write(async () => {
         for (const id of taskIds) {
           try {
-            const task = await database.collections.get<Task>('tasks').find(id);
+            const task = await database.collections.get('tasks').find(id) as Task;
             await task.markAsDeleted();
           } catch {
             // Task might not exist, ignore

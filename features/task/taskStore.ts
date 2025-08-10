@@ -332,7 +332,7 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     return tasks
       .filter(task => 
         task.status === TaskStatus.Active && 
-        task.dueTs !== undefined && task.dueTs <= weekFromNow
+        task.dueTs !== undefined && task.dueTs !== null && task.dueTs <= weekFromNow
       )
       .sort((a, b) => {
         // Pinned items first, sorted by pin time (newest pins first)
