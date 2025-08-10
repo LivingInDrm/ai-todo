@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ThemeProvider } from '../lib/theme/ThemeProvider';
 import { useAuthStore } from '../features/auth/authStore';
 import notificationService from '../features/notify/notificationService';
 import reminderService from '../features/notify/reminderService';
@@ -67,18 +68,20 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <BottomSheetModalProvider>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="auth" />
-            <Stack.Screen name="task-list" />
-            <Stack.Screen name="settings" />
-          </Stack>
-        </BottomSheetModalProvider>
+        <ThemeProvider>
+          <BottomSheetModalProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="auth" />
+              <Stack.Screen name="task-list" />
+              <Stack.Screen name="settings" />
+            </Stack>
+          </BottomSheetModalProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
