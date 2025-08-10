@@ -63,13 +63,13 @@ const TaskCell: React.FC<TaskCellProps> = ({
             styles.actionButton,
             {
               backgroundColor: theme.colors.text.secondary,
-              width: 80,
+              width: theme.sizing.swipeAction,
               height: '100%',
             }
           ]}
           onPress={onMorePress}
         >
-          <Text style={styles.actionText}>⋯</Text>
+          <Text style={[styles.actionText, { color: theme.colors.text.inverse }]}>⋯</Text>
         </TouchableOpacity>
       </Animated.View>
     );
@@ -81,11 +81,11 @@ const TaskCell: React.FC<TaskCellProps> = ({
         styles.actionButton,
         {
           backgroundColor: theme.colors.feedback.success,
-          width: 80,
+          width: theme.sizing.swipeAction,
           height: '100%',
         }
       ]}>
-        <Text style={styles.actionText}>{isCompleted ? '↺' : '✓'}</Text>
+        <Text style={[styles.actionText, { color: theme.colors.text.inverse }]}>{isCompleted ? '↺' : '✓'}</Text>
       </View>
     );
   };
@@ -112,7 +112,7 @@ const TaskCell: React.FC<TaskCellProps> = ({
           styles.container,
           {
             backgroundColor: theme.colors.bg.surface,
-            minHeight: 60,
+            minHeight: theme.sizing.minCellHeight,
           }
         ]}
         onPress={onPress}
@@ -130,7 +130,7 @@ const TaskCell: React.FC<TaskCellProps> = ({
               styles.urgentIndicator,
               {
                 backgroundColor: theme.colors.feedback.danger,
-                width: 3,
+                width: theme.sizing.urgentIndicator,
               }
             ]} />
           )}
@@ -142,6 +142,9 @@ const TaskCell: React.FC<TaskCellProps> = ({
                 ? theme.colors.feedback.success 
                 : theme.colors.border.default,
               marginRight: theme.spacing.m,
+              width: theme.sizing.checkbox,
+              height: theme.sizing.checkbox,
+              borderRadius: theme.sizing.checkbox / 2,
             }
           ]}>
             {isCompleted && (
@@ -215,9 +218,6 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -234,7 +234,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionText: {
-    color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
   },

@@ -1,144 +1,177 @@
-### 样式体系审查问题清单（UI/样式）
+# 样式系统全面审查问题清单
 
-本清单聚焦全局一致性、架构与组织、可维护性、可扩展性、性能五个维度，标注典型文件位置与改进建议。优先级：P0（立即）、P1（近期）、P2（跟进）。
+面向：全局一致性、架构与组织、可维护性、可扩展性、性能。
 
 ---
 
-## 1) 全局一致性
+## 1. 全局一致性
 
-- [P0] 颜色硬编码与主题 token 混用，暗色模式不一致
-  - 现象：大量 `#FFF/#fff/#000/#007AFF/#8E8E93` 等直接写入页面样式，绕过 `theme.colors.*`
-  - 典型：
-    - `app/auth.tsx` 多处硬编码背景、文本、边框与按钮色（如 `#FFF`, `#000`, `#666`, `#007AFF`, `#E0E0E0`, `#FF3B30` 等）
-    - `app/task-list.tsx` 列表容器、草稿区、操作按钮与图标颜色大量硬编码（如 `#fff`, `#F0F8FF`, `#007AFF`, `#34C759` 等）
-    - `app/index.tsx` 活动指示器与容器背景（`#007AFF`, `#FFF`）
-    - `app/settings.tsx` 页头与卡片色（`#fff`, `#f5f5f5`, `#e0e0e0`, `#333`, `#999`, `#007AFF`）
-    - `components/TaskCell.tsx` 动作文本色 `'#fff'`
-  - 影响：暗色模式下对比度/可读性不佳；主题切换易失控
-  - 建议：统一替换为 `theme.colors` 语义色（文本、背景、边框、反馈、强调），并清理所有硬编码
+- 文本组件未统一使用主题化 `@ui/Text`
+  - 现状：多处仍直接使用 `react-native` 的 `Text`，导致颜色、字号、行高等不走主题 token。
+  - 位置：
+    - `app/auth.tsx`（顶部 `import { View, Text, ... } from 'react-native'`）
+    - `app/task-list.tsx`
+    - `app/settings.tsx`
+  - 建议：统一替换为 `@ui/Text`，并用 `variant` + `color` 管理排版与语义色。
 
-- [P1] 字体、间距数值直接写死，未统一映射到 token
-  - 现象：`fontSize: 12/14/16/20/24/32/64`、`padding/margin: 4/6/8/12/16/20/24/32/40/100` 等广泛存在
-  - 典型：`app/auth.tsx`, `app/task-list.tsx`, `components/*` 多处 `StyleSheet.create` 与内联样式
+- 颜色使用不完全走 token，仍有硬编码
+  - 现状：局部存在 `#FFF`、`#000` 等硬编码，或在组件内硬写 `shadowColor`。
+  - 位置示例：
+    - `app/auth.tsx`：`ActivityIndicator color="#FFF"`，`authModeButtonActive.shadowColor = '#000'`
+    - `app/task-list.tsx`：新增按钮阴影 `shadowColor: theme.isDark ? theme.colors.text.primary : '#000'`
+    - `features/notify/notificationService.ts`：Android 通道 `lightColor: '#FF231F7C'`
   - 建议：
-    - 字体尺寸 → `theme.typography` 或 `theme.fontSize` 语义化使用（如 `variant="caption/body/heading/title"`）
-    - 间距 → `theme.spacing` 与 `theme.spacingGroups`；缺口场景补充 `spacingGroups`
+    - 统一通过 `theme.colors.*` 或新增 `theme.colors.utility.shadow`、`theme.colors.utility.activityIndicator` 等语义色。
+    - Android 通知可定义 `colors.brand.notification` 或 `colors.accent.secondary` 语义映射。
 
-- [P1] 圆角、阴影/elevation 使用不统一
-  - 现象：圆角常见 `8/12/28`，与 `theme.radius`/`radiusPresets` 混用；阴影有的用 `theme.elevationPresets`，有的自定义
-  - 典型：`app/settings.tsx` 卡片圆角/描边、`app/task-list.tsx` 新增按钮阴影
-  - 建议：统一使用 `theme.radiusPresets.*` 与 `theme.elevationPresets.*` 做语义映射
-
-- [P2] iOS 阴影 `shadowColor: '#000'` 未与主题抽象关联
-  - 典型：`lib/theme/elevation.ts` iOS 预设均固定 `#000`
-  - 建议：允许通过 token 调整（如 `colors.overlay/backdrop/shadow`），或注释说明设计意图
-
-## 2) 架构与组织
-
-- [P0] 存在“主题体系完整但页面未接入”的断层
-  - 现象：`lib/theme/*` 与 `components/ui/*` 体系完善，但页面层（`app/*`）大量绕过基础 UI 与 token
-  - 影响：风格不一致、难以做全局换肤/改版
+- 间距、圆角、字号存在魔法数值，未完全走 token
+  - 现状：样式表内仍有大量裸数字；多数动态样式已走 `theme.spacing/*`，但基础样式未统一。
+  - 位置示例：
+    - `app/auth.tsx`：`fontSize: 32`、`borderRadius: 8`、`padding: 4/8/16/24/32` 等
+    - `components/TaskDetailSheet.tsx`：`minHeight: 60`
+    - `components/DateTimeButton.tsx`：`marginVertical: 12`
+    - `components/TaskCell.tsx`：`lineHeight: 22`
   - 建议：
-    - 页层优先使用 `@ui` 基础组件（`Text/Button/Card/Sheet/ResponsiveContainer/Badge`）
-    - 新建必要的 `AppBar/ListItem/FormField` 等通用组件，沉淀常用样式
+    - 字号用 `theme.fontSize`，行高按 `typography` 预设或用 `Math.round(size * lineHeight)` 的统一函数。
+    - 间距用 `theme.spacing`/`spacingGroups`，圆角用 `theme.radius`/`radiusPresets`，尺寸用 `theme.sizing`。
 
-- [P1] Token 覆盖面不足：缺“尺寸/组件状态”类 token
-  - 现象：图标/控件尺寸（如 36、56）、徽标/把手宽高等常以魔法数字出现
-  - 建议：新增 `sizing`（控件/图标/把手/圆点等尺寸）与 `opacity`（禁用/悬浮）token，补齐 `spacingGroups`
+- 单位与格式
+  - 现状：RN 默认数值为 dp，偶有 `'100%'` 用于占比布局；颜色主要为 HEX（含 RGBA）。
+  - 建议：约定统一使用 dp 数值与 HEX/RGBA，避免三位 HEX（如 `#FFF`），全部走 token 或统一 HEX 长度。
 
-- [P1] Elevation 直接量与语义预设并存
-  - 现象：既有 `theme.elevationPresets.card`，也有直接用 `theme.elevation.s`
-  - 建议：页面层仅使用语义预设；基础组件内部可用原子刻度
+---
 
-## 3) 可维护性
+## 2. 架构与组织
 
-- [P0] 重复样式可抽取为通用组件或共享样式
-  - 例：按钮（主/次/危险态）、卡片、列表项头尾、分隔线、表单输入框
-  - 建议：统一由 `@ui` 组件承载；`auth`/`settings` 当前自定义按钮应替换为 `@ui/Button`
+- 主题/Tokens 组织较完善，但入口未充分推广到所有组件
+  - 优点：`lib/theme` 已集中管理 `colors/spacing/typography/radius/elevation/responsive/sizing`，`ThemeProvider` 支持系统/持久化主题。
+  - 问题：部分屏幕未使用 `@ui` 体系（如 `Text`/`Button`），导致风格分裂。
+  - 建议：完成从屏幕到组件的 UI 层“令牌化”，优先替换纯视觉组件为 `@ui/*`。
 
-- [P1] 大量魔法数值（magic numbers）
-  - 例：
-    - 底部安全区 `paddingBottom: 34`（`components/FloatingBar.tsx`）
-    - 把手宽高 `36x4`（`components/ui/Sheet.tsx`）
-    - 复选框 `22x22`、勾选字体 `14`（`components/TaskCell.tsx`）
-    - 新建按钮 `56x56`、圆角 `28`、阴影参数（`app/task-list.tsx`）
+- 响应式容器未在页面层普遍使用
+  - 现状：提供了 `components/ui/ResponsiveContainer.tsx` 与 `lib/theme/responsive.ts`，但 `app/*` 页面未使用。
+  - 建议：页面根容器统一包裹 `ResponsiveContainer`，设置 `padding=centered`，保证平板/大屏一致的阅读宽度与边距。
+
+- BottomSheet 默认快照点固定像素
+  - 现状：`components/BottomSheet.tsx` 默认 `snapPoints=[400,600]`、`'50%'` 等固定值。
+  - 建议：引入基于 `useScreenSize()` 的响应式快照点（如小屏 60%/大屏 480dp）。
+
+---
+
+## 3. 可维护性
+
+- 阴影/海拔使用不统一
+  - 现状：
+    - 主题已提供 `theme.elevation`/`elevationPresets`，但页面仍自定义阴影：
+      - `app/auth.tsx`：`authModeButtonActive` 自定义 iOS 阴影
+      - `app/task-list.tsx`：新增按钮自定义阴影属性
+  - 建议：统一替换为 `theme.elevationPresets.button / floatingButton / card` 等；必要时扩展预设。
+
+- 重复的页面 Header/Section/Card 样式
+  - 现状：`app/settings.tsx`、`app/task-list.tsx` 等存在相似的 header/section/card 容器样式。
+  - 建议：沉淀 `@ui/Sheet.Header`、`@ui/Card`、`@ui/SectionHeader` 等通用容器，减少样式重复。
+
+- 空样式与占位样式过多
+  - 现状：`app/task-list.tsx` 内 `styles.header`、`styles.headerPlaceholder` 等为空对象；
+  - 风险：增加视觉噪音与维护成本。
+  - 建议：清理未使用/空样式；对确需动态样式的部分，保留为内联并以 token 构造。
+
+- 魔法数值清单（优先替换为 token）
+  - `app/auth.tsx`: `fontSize: 32`、`borderRadius: 6/8`、`paddingHorizontal: 16`、`paddingVertical: 8/16`、`marginBottom: 8/16/24/32`
+  - `components/TaskDetailSheet.tsx`: `minHeight: 60`
+  - `components/DateTimeButton.tsx`: `marginVertical: 12`, `icon.fontSize: 16`
+  - `components/TaskCell.tsx`: `lineHeight: 22`, `actionText.fontSize: 20`
+  - 建议：用 `theme.fontSize`, `theme.spacing`, `theme.radius`, `theme.sizing` 替换；对行高统一由 `typography` 决定。
+
+---
+
+## 4. 可扩展性
+
+- 多主题支持基本完善，但状态栏样式未随主题切换
+  - 现状：页面多处 `StatusBar style="dark"` 被硬编码。
+  - 建议：根据 `theme.isDark` 动态设置 `StatusBar` 风格，避免暗色主题下对比度问题。
+
+- 品牌/扩展主题位未预留完整语义
+  - 现状：`colors.accent.primary/secondary` 已有，但未沉淀通知/系统级强调色等扩展位。
+  - 建议：新增 `colors.brand.*` 或 `colors.utility.*`，映射到平台通道颜色、链接色等跨场景语义。
+
+- 响应式与适配
+  - 现状：提供了 `useResponsive*`/`useMaxContentWidth`，但页面层未应用。
   - 建议：
-    - 使用 `useSafeAreaInsets()` 动态适配底部留白
-    - 尺寸统一纳入 `sizing` token 或组件内部常量
+    - 页面根容器使用 `ResponsiveContainer` 控制阅读宽度、边距。
+    - BottomSheet snapPoints 与大按钮尺寸随 `ScreenSize` 调整。
 
-- [P1] 颜色/状态表达缺少语义别名
-  - 例：草稿区 `#F0F8FF`、状态图标用纯色常量
-  - 建议：用 `colors.accent.* / feedback.* / bg.subtle` 组合表达
+- 新增组件风格一致性
+  - 建议：新增组件必须：
+    - 尺寸走 `sizing`、间距走 `spacing/spacingGroups`、圆角走 `radius/radiusPresets`、阴影走 `elevationPresets`；
+    - 文本仅用 `@ui/Text`；按钮仅用 `@ui/Button`；
+    - 禁止硬编码颜色与字号。
 
-## 4) 可扩展性
+---
 
-- [P0] 暗色模式覆盖不全
-  - 现象：页面硬编码浅色导致夜间模式对比不足（如 `app/index.tsx`, `app/auth.tsx`, `app/task-list.tsx`, `app/settings.tsx`）
-  - 建议：全面接入 `ThemeProvider` 的 `theme.colors` 与 `@ui/Text` 颜色语义
+## 5. 性能
 
-- [P1] 响应式与无障碍字体比例未统一接入
-  - 现象：已有 `useResponsive*` 与字体比例工具，但页面与部分组件未使用
-  - 建议：关键布局与大字号文本接入 `useResponsiveSpacing / useResponsiveFontSize`
-
-- [P2] 多品牌/皮肤能力预留
-  - 现状：`colors.accent.primary/secondary` 已具备基础；
-  - 建议：预留品牌主题切换入口与 token 扩展规范
-
-## 5) 性能
-
-- [P2] 样式对象在渲染期频繁拼接
-  - 现象：列表项/大量节点内联样式依赖 `theme` 拼接，虽常见，但在长列表可能带来额外重渲染
+- 内联样式的构造与重渲染
+  - 现状：大量样式在渲染期基于 `theme` 内联构造（优点：主题切换即时；风险：频繁创建对象）。
   - 建议：
-    - 将静态部分落入 `StyleSheet.create`，动态部分尽量减少对象创建（或用 `useMemo`/派生样式）
-    - 列表项尽量保持样式稳定，避免不必要的 `props` 变化
+    - 将纯静态样式下沉到 `StyleSheet.create`；需要按主题变动的部分仍内联，但可用小型 `useMemo` 合并复杂对象。
+    - 阴影等复杂样式统一走主题预设，减少重复对象合成。
 
-- [P2] 未使用样式的可能性（需二次扫描）
-  - 建议：CI 增加未使用样式/未引用色值扫描（lint/脚本）
+- 选择器深度/复杂度
+  - 现状：RN 样式为对象合成，无深层选择器问题；无明显性能红旗。
 
----
-
-## 重点文件与样例位置（节选）
-
-- `app/auth.tsx`：背景/文字/边框/按钮大量硬编码；应改用 `@ui` 与 `theme`
-- `app/task-list.tsx`：列表容器、草稿区、操作按钮、图标色与阴影硬编码
-- `app/index.tsx`：指示器颜色、容器背景硬编码
-- `app/settings.tsx`：页头、卡片、分割线、文案色硬编码
-- `components/TaskCell.tsx`：动作文本色 `'#fff'` 应为 `theme.colors.text.inverse`
-- `components/FloatingBar.tsx`：底部留白魔法数值，应使用安全区 inset
-- `components/ui/*` 与 `lib/theme/*`：体系完整，建议作为页层唯一入口
+- 未使用/冗余样式
+  - 现状：存在空样式与可能未使用的样式条目。
+  - 建议：按文件清理，保持样式表精简。
 
 ---
 
-## 建议的改造路线（可执行）
+## 建议的修复清单（可拆分为多 PR）
 
-- [P0] 页面改造（优先保证暗色模式与一致性）
-  - `app/index.tsx`, `app/auth.tsx`, `app/task-list.tsx`, `app/settings.tsx`
-  - 替换：颜色/字体/间距 → `theme`；`TouchableOpacity` → `@ui/Button`；文本 → `@ui/Text`
-  - 分隔线/卡片 → `@ui/Card` 与 `theme.colors.border.*`
+- 全局替换
+  - [ ] `app/*` 屏幕将 `react-native` 的 `Text` 替换为 `@ui/Text` 并应用 `variant+color`。
+  - [ ] 将 `ActivityIndicator` 颜色与 loading 反馈色改为 `theme.colors.text.inverse` 或新增 `utility.activityIndicator`。
+  - [ ] 将硬编码 `#000/#FFF`、阴影等替换为 `theme.colors` 与 `theme.elevationPresets`。
 
-- [P1] Token 扩展与通用组件补齐
-  - 新增 `sizing`、`opacity` token；补充 `spacingGroups` 常用组合
-  - 新增 `AppBar/ListItem/FormField/Divider` 等基础组件
+- Token 化与消除魔法数
+  - [ ] 统一 `fontSize/lineHeight/fontWeight`：改为 `theme.typography.*` 或 `theme.fontSize/* + theme.fontWeight/*`。
+  - [ ] 统一 `padding/margin/gap`：改为 `theme.spacing` 或 `theme.spacingGroups`。
+  - [ ] 统一 `borderRadius/尺寸`：改为 `theme.radius(*/presets)` 与 `theme.sizing`。
 
-- [P1] 安全区与响应式适配
-  - `FloatingBar` 等底部组件接入 `useSafeAreaInsets()`
-  - 大字号/平板场景接入 `useResponsive*`
+- 组件与容器沉淀
+  - [ ] 创建并推广 `@ui/SectionHeader`、`@ui/Header`、`@ui/Card` 的标准用法，替换 `settings` 与 `task-list` 中重复结构。
+  - [ ] `BottomSheet`：根据 `ScreenSize` 设定 `snapPoints` 的响应式策略；统一 header/footer 样式到 `@ui/Sheet`。
 
-- [P2] 工具与守护
-  - 引入 ESLint 规则/脚本：禁止硬编码颜色/字体/间距；建议/自动修复为 token
-  - 在 PR 检查中加入暗色截图对比或视觉基准测试
+- 响应式适配
+  - [ ] `app/*` 页面根使用 `ResponsiveContainer`（`padding=centered`）。
+  - [ ] 列表底部按钮区与 FAB 在 `wide` 模式调整尺寸与边距（参考 `theme.sizing.fab` 与 `useResponsiveSpacing`）。
+
+- 状态栏与暗色模式
+  - [ ] 基于 `theme.isDark` 设置 `StatusBar` 的 `style` 与背景/前景对比度。
+
+- 清理与一致化
+  - [ ] 移除空样式条目与未使用样式。
+  - [ ] 为 Android 通知 `lightColor` 定义语义 token 并在 `notificationService` 中引用。
 
 ---
 
-## 验收标准
+## 参考文件与证据
 
-- 暗色/浅色主题下页面与组件视觉一致，文本对比度达标
-- 颜色/字体/间距/圆角/阴影全部源自 `theme` 或 `@ui`
-- 页面层不再出现 `#xxxxxx`、`fontSize: number`、`padding/margin: number` 的硬编码
-- 列表与弹层样式稳定，无明显抖动与重排
+- 主题与 Provider
+  - `lib/theme/index.ts`（tokens 汇总与 `createTheme`）
+  - `lib/theme/ThemeProvider.tsx`（系统/持久化主题）
+  - `lib/theme/{colors,spacing,typography,elevation,responsive,sizing}.ts`
+
+- 存在问题的典型位置
+  - `app/auth.tsx`（硬编码颜色、阴影、字号/圆角/间距魔法数）
+  - `app/task-list.tsx`（FAB 自定义阴影、部分空样式、`Text` 未走 `@ui`）
+  - `app/settings.tsx`（页面容器与分节复用场景明显、`Text` 未走 `@ui`）
+  - `components/TaskDetailSheet.tsx`（局部魔法数）
+  - `components/DateTimeButton.tsx`（局部魔法数）
+  - `features/notify/notificationService.ts`（通知通道颜色硬编码）
 
 ---
 
-注：`lib/theme`、`components/ui` 当前设计良好，问题主要集中在页面层未全面接入主题体系与通用组件。
+如需，我可以按上述清单分批提交编辑，保证每步改动可测且不破坏现有布局与交互。
 
 

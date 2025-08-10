@@ -14,9 +14,11 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../features/auth/authStore';
+import { useTheme } from '../lib/theme/ThemeProvider';
 
 export default function AuthScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
   const { 
     signIn, 
     signUp, 
@@ -138,7 +140,7 @@ export default function AuthScreen() {
   };
   
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.bg.surface }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -148,8 +150,8 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>AI Todo</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: theme.colors.text.primary }]}>AI Todo</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
               {authMode === 'magic' 
                 ? 'Sign in with email link'
                 : (isSignUp ? 'Create your account' : 'Welcome back')}
@@ -157,11 +159,11 @@ export default function AuthScreen() {
           </View>
           
           {/* Auth Mode Selector */}
-          <View style={styles.authModeSelector}>
+          <View style={[styles.authModeSelector, { backgroundColor: theme.colors.bg.subtle }]}>
             <TouchableOpacity
               style={[
                 styles.authModeButton,
-                authMode === 'magic' && styles.authModeButtonActive
+                authMode === 'magic' && [styles.authModeButtonActive, { backgroundColor: theme.colors.bg.surface }]
               ]}
               onPress={() => {
                 setAuthMode('magic');
@@ -171,7 +173,8 @@ export default function AuthScreen() {
             >
               <Text style={[
                 styles.authModeText,
-                authMode === 'magic' && styles.authModeTextActive
+                { color: theme.colors.text.secondary },
+                authMode === 'magic' && [styles.authModeTextActive, { color: theme.colors.accent.primary }]
               ]}>
                 Email Link
               </Text>
@@ -180,7 +183,7 @@ export default function AuthScreen() {
             <TouchableOpacity
               style={[
                 styles.authModeButton,
-                authMode === 'password' && styles.authModeButtonActive
+                authMode === 'password' && [styles.authModeButtonActive, { backgroundColor: theme.colors.bg.surface }]
               ]}
               onPress={() => {
                 setAuthMode('password');
@@ -190,7 +193,8 @@ export default function AuthScreen() {
             >
               <Text style={[
                 styles.authModeText,
-                authMode === 'password' && styles.authModeTextActive
+                { color: theme.colors.text.secondary },
+                authMode === 'password' && [styles.authModeTextActive, { color: theme.colors.accent.primary }]
               ]}>
                 Password
               </Text>
@@ -204,9 +208,13 @@ export default function AuthScreen() {
                 {!showOtpInput ? (
                   <>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { 
+                        borderColor: theme.colors.border.default,
+                        color: theme.colors.text.primary,
+                        backgroundColor: theme.colors.bg.subtle
+                      }]}
                       placeholder="Email"
-                      placeholderTextColor="#999"
+                      placeholderTextColor={theme.colors.text.muted}
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -216,14 +224,14 @@ export default function AuthScreen() {
                     />
                     
                     <TouchableOpacity
-                      style={[styles.button, styles.primaryButton, isLoading && styles.disabledButton]}
+                      style={[styles.button, styles.primaryButton, { backgroundColor: theme.colors.accent.primary }, isLoading && styles.disabledButton]}
                       onPress={handleMagicLinkSubmit}
                       disabled={isLoading}
                     >
                       {isLoading ? (
-                        <ActivityIndicator color="#FFF" />
+                        <ActivityIndicator color={theme.colors.text.inverse} />
                       ) : (
-                        <Text style={styles.buttonText}>
+                        <Text style={[styles.buttonText, { color: theme.colors.text.inverse }]}>
                           Send Login Link
                         </Text>
                       )}
@@ -231,14 +239,18 @@ export default function AuthScreen() {
                   </>
                 ) : (
                   <>
-                    <Text style={styles.instructionText}>
+                    <Text style={[styles.instructionText, { color: theme.colors.text.secondary }]}>
                       Enter the 6-digit code from your email
                     </Text>
                     
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { 
+                        borderColor: theme.colors.border.default,
+                        color: theme.colors.text.primary,
+                        backgroundColor: theme.colors.bg.subtle
+                      }]}
                       placeholder="000000"
-                      placeholderTextColor="#999"
+                      placeholderTextColor={theme.colors.text.muted}
                       value={otpCode}
                       onChangeText={setOtpCode}
                       keyboardType="number-pad"
@@ -247,14 +259,14 @@ export default function AuthScreen() {
                     />
                     
                     <TouchableOpacity
-                      style={[styles.button, styles.primaryButton, isLoading && styles.disabledButton]}
+                      style={[styles.button, styles.primaryButton, { backgroundColor: theme.colors.accent.primary }, isLoading && styles.disabledButton]}
                       onPress={handleOtpVerification}
                       disabled={isLoading}
                     >
                       {isLoading ? (
-                        <ActivityIndicator color="#FFF" />
+                        <ActivityIndicator color={theme.colors.text.inverse} />
                       ) : (
-                        <Text style={styles.buttonText}>
+                        <Text style={[styles.buttonText, { color: theme.colors.text.inverse }]}>
                           Verify Code
                         </Text>
                       )}
@@ -269,7 +281,7 @@ export default function AuthScreen() {
                       }}
                       disabled={isLoading}
                     >
-                      <Text style={styles.switchText}>
+                      <Text style={[styles.switchText, { color: theme.colors.accent.primary }]}>
                         Send a new code
                       </Text>
                     </TouchableOpacity>
@@ -282,9 +294,13 @@ export default function AuthScreen() {
             {authMode === 'password' && (
               <>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { 
+                    borderColor: theme.colors.border.default,
+                    color: theme.colors.text.primary,
+                    backgroundColor: theme.colors.bg.subtle
+                  }]}
                   placeholder="Email"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={theme.colors.text.muted}
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
@@ -294,9 +310,13 @@ export default function AuthScreen() {
                 />
                 
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { 
+                    borderColor: theme.colors.border.default,
+                    color: theme.colors.text.primary,
+                    backgroundColor: theme.colors.bg.subtle
+                  }]}
                   placeholder="Password"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={theme.colors.text.muted}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
@@ -305,9 +325,13 @@ export default function AuthScreen() {
                 
                 {isSignUp && (
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { 
+                      borderColor: theme.colors.border.default,
+                      color: theme.colors.text.primary,
+                      backgroundColor: theme.colors.bg.subtle
+                    }]}
                     placeholder="Confirm Password"
-                    placeholderTextColor="#999"
+                    placeholderTextColor={theme.colors.text.muted}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     secureTextEntry
@@ -316,7 +340,7 @@ export default function AuthScreen() {
                 )}
                 
                 <TouchableOpacity
-                  style={[styles.button, styles.primaryButton, isLoading && styles.disabledButton]}
+                  style={[styles.button, styles.primaryButton, { backgroundColor: theme.colors.accent.primary }, isLoading && styles.disabledButton]}
                   onPress={handlePasswordSubmit}
                   disabled={isLoading}
                 >
@@ -348,25 +372,25 @@ export default function AuthScreen() {
             )}
             
             {error && (
-              <Text style={styles.errorText}>{error}</Text>
+              <Text style={[styles.errorText, { color: theme.colors.feedback.danger }]}>{error}</Text>
             )}
           </View>
           
           <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.border.default }]} />
+            <Text style={[styles.dividerText, { color: theme.colors.text.muted }]}>OR</Text>
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.border.default }]} />
           </View>
           
           <TouchableOpacity
-            style={[styles.button, styles.secondaryButton]}
+            style={[styles.button, styles.secondaryButton, { backgroundColor: theme.colors.bg.subtle }]}
             onPress={handleOfflineMode}
             disabled={isLoading}
           >
-            <Text style={styles.secondaryButtonText}>Continue Offline</Text>
+            <Text style={[styles.secondaryButtonText, { color: theme.colors.text.primary }]}>Continue Offline</Text>
           </TouchableOpacity>
           
-          <Text style={styles.offlineNote}>
+          <Text style={[styles.offlineNote, { color: theme.colors.text.muted }]}>
             You can use the app offline, but your tasks won't sync across devices
           </Text>
         </ScrollView>
@@ -378,7 +402,6 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
   },
   keyboardView: {
     flex: 1,
@@ -395,16 +418,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#000',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
   },
   authModeSelector: {
     flexDirection: 'row',
-    backgroundColor: '#F0F0F0',
     borderRadius: 8,
     padding: 4,
     marginBottom: 24,
@@ -417,7 +437,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   authModeButtonActive: {
-    backgroundColor: '#FFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -427,10 +446,8 @@ const styles = StyleSheet.create({
   authModeText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#666',
   },
   authModeTextActive: {
-    color: '#007AFF',
     fontWeight: '600',
   },
   form: {
@@ -439,13 +456,10 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#000',
     marginBottom: 16,
-    backgroundColor: '#FAFAFA',
   },
   button: {
     height: 48,
@@ -455,10 +469,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   primaryButton: {
-    backgroundColor: '#007AFF',
   },
   secondaryButton: {
-    backgroundColor: '#F0F0F0',
   },
   disabledButton: {
     opacity: 0.6,
@@ -466,29 +478,24 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFF',
   },
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
   },
   switchButton: {
     alignItems: 'center',
   },
   switchText: {
     fontSize: 14,
-    color: '#007AFF',
   },
   instructionText: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 16,
     textAlign: 'center',
   },
   errorText: {
     fontSize: 14,
-    color: '#FF3B30',
     marginTop: 8,
     textAlign: 'center',
   },
@@ -500,16 +507,13 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E0E0E0',
   },
   dividerText: {
     marginHorizontal: 16,
     fontSize: 14,
-    color: '#999',
   },
   offlineNote: {
     fontSize: 12,
-    color: '#999',
     textAlign: 'center',
     marginTop: 8,
   },

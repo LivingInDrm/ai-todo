@@ -11,6 +11,7 @@ import { spacing, spacingGroups } from './spacing';
 import { fontSize, fontWeight, lineHeight, typography } from './typography';
 import { radius, radiusPresets } from './radius';
 import { elevation, elevationPresets } from './elevation';
+import { sizing } from './sizing';
 
 export interface Theme {
   colors: ColorTokens;
@@ -24,6 +25,7 @@ export interface Theme {
   radiusPresets: typeof radiusPresets;
   elevation: typeof elevation;
   elevationPresets: typeof elevationPresets;
+  sizing: typeof sizing;
   isDark: boolean;
 }
 
@@ -43,6 +45,7 @@ export const createTheme = (colorScheme: ColorScheme = 'light'): Theme => {
     radiusPresets,
     elevation,
     elevationPresets,
+    sizing,
     isDark,
   };
 };
@@ -54,6 +57,7 @@ export * from './typography';
 export * from './radius';
 export * from './elevation';
 export * from './responsive';
+export * from './sizing';
 
 // Default themes
 export const lightTheme = createTheme('light');

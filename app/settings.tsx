@@ -12,8 +12,10 @@ import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useAuthStore } from '../features/auth/authStore';
 import useTaskStore from '../features/task/taskStore';
+import { useTheme } from '../lib/theme/ThemeProvider';
 
 export default function SettingsScreen() {
+  const { theme } = useTheme();
   const { user, signOut } = useAuthStore();
   const { tasks, clearCompletedTasks } = useTaskStore();
   const [language, setLanguage] = useState('zh-CN');
@@ -67,111 +69,111 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.bg.subtle }]} edges={['top']}>
       <StatusBar style="dark" />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.colors.bg.surface, borderBottomColor: theme.colors.border.default, paddingHorizontal: theme.spacing.l, paddingVertical: theme.spacing.m }]}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { padding: theme.spacing.s }]}
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Text style={[styles.backIcon, { color: theme.colors.text.primary, fontSize: theme.fontSize.xl }]}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>设置</Text>
-        <View style={styles.placeholder} />
+        <Text style={[styles.headerTitle, { color: theme.colors.text.primary, fontSize: theme.fontSize.l }]}>设置</Text>
+        <View style={[styles.placeholder, { width: 40 }]} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* User Info Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>账户信息</Text>
-          <View style={styles.card}>
-            <View style={styles.userInfo}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
+        <View style={[styles.section, { marginTop: theme.spacing['2xl'], paddingHorizontal: theme.spacing.l }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.secondary, fontSize: theme.fontSize.s, marginBottom: theme.spacing.s, marginLeft: theme.spacing.xs }]}>账户信息</Text>
+          <View style={[styles.card, { backgroundColor: theme.colors.bg.surface, borderRadius: theme.radius.l }]}>
+            <View style={[styles.userInfo, { padding: theme.spacing.l }]}>
+              <View style={[styles.avatar, { backgroundColor: theme.colors.accent.primary, width: theme.sizing.avatar, height: theme.sizing.avatar, borderRadius: theme.sizing.avatar / 2 }]}>
+                <Text style={[styles.avatarText, { color: theme.colors.text.inverse, fontSize: theme.fontSize.xl }]}>
                   {user?.email?.[0]?.toUpperCase() || 'U'}
                 </Text>
               </View>
-              <View style={styles.userDetails}>
-                <Text style={styles.userEmail}>{user?.email || '未登录'}</Text>
-                <Text style={styles.userId}>ID: {user?.id?.slice(0, 8) || 'N/A'}</Text>
+              <View style={[styles.userDetails, { marginLeft: theme.spacing.l }]}>
+                <Text style={[styles.userEmail, { color: theme.colors.text.primary, fontSize: theme.fontSize.m, marginBottom: theme.spacing.xs }]}>{user?.email || '未登录'}</Text>
+                <Text style={[styles.userId, { color: theme.colors.text.muted, fontSize: theme.fontSize.xs }]}>ID: {user?.id?.slice(0, 8) || 'N/A'}</Text>
               </View>
             </View>
           </View>
         </View>
 
         {/* Language Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>语言设置</Text>
-          <View style={styles.card}>
+        <View style={[styles.section, { marginTop: theme.spacing['2xl'], paddingHorizontal: theme.spacing.l }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.secondary, fontSize: theme.fontSize.s, marginBottom: theme.spacing.s, marginLeft: theme.spacing.xs }]}>语言设置</Text>
+          <View style={[styles.card, { backgroundColor: theme.colors.bg.surface, borderRadius: theme.radius.l }]}>
             <TouchableOpacity
-              style={styles.languageOption}
+              style={[styles.languageOption, { padding: theme.spacing.l }]}
               onPress={() => handleLanguageChange('zh-CN')}
               activeOpacity={0.7}
             >
-              <Text style={styles.optionText}>简体中文</Text>
-              {language === 'zh-CN' && <Text style={styles.checkmark}>✓</Text>}
+              <Text style={[styles.optionText, { color: theme.colors.text.primary, fontSize: theme.fontSize.m }]}>简体中文</Text>
+              {language === 'zh-CN' && <Text style={[styles.checkmark, { color: theme.colors.accent.primary, fontSize: theme.fontSize.l }]}>✓</Text>}
             </TouchableOpacity>
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: theme.colors.border.subtle, marginLeft: theme.spacing.l }]} />
             <TouchableOpacity
-              style={styles.languageOption}
+              style={[styles.languageOption, { padding: theme.spacing.l }]}
               onPress={() => handleLanguageChange('en-US')}
               activeOpacity={0.7}
             >
-              <Text style={styles.optionText}>English</Text>
-              {language === 'en-US' && <Text style={styles.checkmark}>✓</Text>}
+              <Text style={[styles.optionText, { color: theme.colors.text.primary, fontSize: theme.fontSize.m }]}>English</Text>
+              {language === 'en-US' && <Text style={[styles.checkmark, { color: theme.colors.accent.primary, fontSize: theme.fontSize.l }]}>✓</Text>}
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Data Management Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>数据管理</Text>
-          <View style={styles.card}>
+        <View style={[styles.section, { marginTop: theme.spacing['2xl'], paddingHorizontal: theme.spacing.l }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.secondary, fontSize: theme.fontSize.s, marginBottom: theme.spacing.s, marginLeft: theme.spacing.xs }]}>数据管理</Text>
+          <View style={[styles.card, { backgroundColor: theme.colors.bg.surface, borderRadius: theme.radius.l }]}>
             <TouchableOpacity
-              style={styles.actionItem}
+              style={[styles.actionItem, { padding: theme.spacing.l }]}
               onPress={handleClearCompletedTasks}
               activeOpacity={0.7}
             >
               <View>
-                <Text style={styles.actionText}>清理已完成任务</Text>
-                <Text style={styles.actionDescription}>
+                <Text style={[styles.actionText, { color: theme.colors.text.primary, fontSize: theme.fontSize.m, marginBottom: theme.spacing.xs }]}>清理已完成任务</Text>
+                <Text style={[styles.actionDescription, { color: theme.colors.text.muted, fontSize: theme.fontSize.xs }]}>
                   清理所有已完成的任务 ({completedTasksCount} 个)
                 </Text>
               </View>
-              <Text style={styles.chevron}>›</Text>
+              <Text style={[styles.chevron, { color: theme.colors.text.muted, fontSize: theme.fontSize.xl }]}>›</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* About Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>关于</Text>
-          <View style={styles.card}>
-            <View style={styles.aboutItem}>
-              <Text style={styles.aboutLabel}>版本</Text>
-              <Text style={styles.aboutValue}>1.0.0</Text>
+        <View style={[styles.section, { marginTop: theme.spacing['2xl'], paddingHorizontal: theme.spacing.l }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.secondary, fontSize: theme.fontSize.s, marginBottom: theme.spacing.s, marginLeft: theme.spacing.xs }]}>关于</Text>
+          <View style={[styles.card, { backgroundColor: theme.colors.bg.surface, borderRadius: theme.radius.l }]}>
+            <View style={[styles.aboutItem, { padding: theme.spacing.l }]}>
+              <Text style={[styles.aboutLabel, { color: theme.colors.text.primary, fontSize: theme.fontSize.m }]}>版本</Text>
+              <Text style={[styles.aboutValue, { color: theme.colors.text.muted, fontSize: theme.fontSize.s }]}>1.0.0</Text>
             </View>
-            <View style={styles.divider} />
-            <View style={styles.aboutItem}>
-              <Text style={styles.aboutLabel}>构建</Text>
-              <Text style={styles.aboutValue}>MVP</Text>
+            <View style={[styles.divider, { backgroundColor: theme.colors.border.subtle, marginLeft: theme.spacing.l }]} />
+            <View style={[styles.aboutItem, { padding: theme.spacing.l }]}>
+              <Text style={[styles.aboutLabel, { color: theme.colors.text.primary, fontSize: theme.fontSize.m }]}>构建</Text>
+              <Text style={[styles.aboutValue, { color: theme.colors.text.muted, fontSize: theme.fontSize.s }]}>MVP</Text>
             </View>
           </View>
         </View>
 
         {/* Logout Button */}
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[styles.logoutButton, { backgroundColor: theme.colors.bg.surface, borderColor: theme.colors.feedback.danger, marginHorizontal: theme.spacing.l, marginTop: theme.spacing['3xl'], borderRadius: theme.radius.l, padding: theme.spacing.l }]}
           onPress={handleLogout}
           activeOpacity={0.7}
         >
-          <Text style={styles.logoutText}>退出登录</Text>
+          <Text style={[styles.logoutText, { color: theme.colors.feedback.danger, fontSize: theme.fontSize.m }]}>退出登录</Text>
         </TouchableOpacity>
 
-        <View style={styles.bottomPadding} />
+        <View style={[styles.bottomPadding, { height: theme.spacing['3xl'] }]} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -180,7 +182,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
@@ -188,24 +189,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   backButton: {
     padding: 8,
   },
   backIcon: {
-    fontSize: 24,
-    color: '#333',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
   },
   placeholder: {
-    width: 40,
   },
   content: {
     flex: 1,
@@ -217,12 +212,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#666',
     marginBottom: 8,
     marginLeft: 4,
   },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -232,101 +225,60 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 20,
     fontWeight: '600',
-    color: '#fff',
   },
   userDetails: {
-    marginLeft: 16,
     flex: 1,
   },
   userEmail: {
-    fontSize: 16,
     fontWeight: '500',
-    color: '#333',
-    marginBottom: 4,
   },
   userId: {
-    fontSize: 12,
-    color: '#999',
   },
   languageOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
   },
   optionText: {
-    fontSize: 16,
-    color: '#333',
   },
   checkmark: {
-    fontSize: 18,
-    color: '#007AFF',
     fontWeight: '600',
   },
   divider: {
     height: 1,
-    backgroundColor: '#f0f0f0',
-    marginLeft: 16,
   },
   actionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
   },
   actionText: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 4,
   },
   actionDescription: {
-    fontSize: 12,
-    color: '#999',
   },
   chevron: {
-    fontSize: 20,
-    color: '#999',
   },
   aboutItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
   },
   aboutLabel: {
-    fontSize: 16,
-    color: '#333',
   },
   aboutValue: {
-    fontSize: 14,
-    color: '#999',
   },
   logoutButton: {
-    marginHorizontal: 16,
-    marginTop: 32,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#FF3B30',
   },
   logoutText: {
-    fontSize: 16,
     fontWeight: '500',
-    color: '#FF3B30',
   },
   bottomPadding: {
-    height: 32,
   },
 });
