@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -13,8 +12,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../features/auth/authStore';
 import { useTheme } from '../lib/theme/ThemeProvider';
+import { lightTheme as defaultTheme } from '../lib/theme';
+import { Text } from '@ui';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -141,6 +143,7 @@ export default function AuthScreen() {
   
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.bg.surface }]}>
+      <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -150,8 +153,8 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.colors.text.primary }]}>AI Todo</Text>
-            <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
+            <Text variant="title" style={styles.title}>AI Todo</Text>
+            <Text variant="heading" color="secondary" style={styles.subtitle}>
               {authMode === 'magic' 
                 ? 'Sign in with email link'
                 : (isSignUp ? 'Create your account' : 'Welcome back')}
@@ -171,11 +174,13 @@ export default function AuthScreen() {
               }}
               disabled={isLoading}
             >
-              <Text style={[
-                styles.authModeText,
-                { color: theme.colors.text.secondary },
-                authMode === 'magic' && [styles.authModeTextActive, { color: theme.colors.accent.primary }]
-              ]}>
+              <Text 
+                variant="body" 
+                color={authMode === 'magic' ? 'link' : 'secondary'}
+                style={[
+                  styles.authModeText,
+                  authMode === 'magic' && styles.authModeTextActive
+                ]}>
                 Email Link
               </Text>
             </TouchableOpacity>
@@ -191,11 +196,13 @@ export default function AuthScreen() {
               }}
               disabled={isLoading}
             >
-              <Text style={[
-                styles.authModeText,
-                { color: theme.colors.text.secondary },
-                authMode === 'password' && [styles.authModeTextActive, { color: theme.colors.accent.primary }]
-              ]}>
+              <Text 
+                variant="body" 
+                color={authMode === 'password' ? 'link' : 'secondary'}
+                style={[
+                  styles.authModeText,
+                  authMode === 'password' && styles.authModeTextActive
+                ]}>
                 Password
               </Text>
             </TouchableOpacity>
@@ -231,7 +238,7 @@ export default function AuthScreen() {
                       {isLoading ? (
                         <ActivityIndicator color={theme.colors.text.inverse} />
                       ) : (
-                        <Text style={[styles.buttonText, { color: theme.colors.text.inverse }]}>
+                        <Text variant="body" color="inverse" style={styles.buttonText}>
                           Send Login Link
                         </Text>
                       )}
@@ -239,7 +246,7 @@ export default function AuthScreen() {
                   </>
                 ) : (
                   <>
-                    <Text style={[styles.instructionText, { color: theme.colors.text.secondary }]}>
+                    <Text variant="caption" color="secondary" style={styles.instructionText}>
                       Enter the 6-digit code from your email
                     </Text>
                     
@@ -266,7 +273,7 @@ export default function AuthScreen() {
                       {isLoading ? (
                         <ActivityIndicator color={theme.colors.text.inverse} />
                       ) : (
-                        <Text style={[styles.buttonText, { color: theme.colors.text.inverse }]}>
+                        <Text variant="body" color="inverse" style={styles.buttonText}>
                           Verify Code
                         </Text>
                       )}
@@ -281,7 +288,7 @@ export default function AuthScreen() {
                       }}
                       disabled={isLoading}
                     >
-                      <Text style={[styles.switchText, { color: theme.colors.accent.primary }]}>
+                      <Text variant="caption" color="link" style={styles.switchText}>
                         Send a new code
                       </Text>
                     </TouchableOpacity>
@@ -345,9 +352,9 @@ export default function AuthScreen() {
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#FFF" />
+                    <ActivityIndicator color={theme.colors.text.inverse} />
                   ) : (
-                    <Text style={styles.buttonText}>
+                    <Text variant="body" color="inverse" style={styles.buttonText}>
                       {isSignUp ? 'Sign Up' : 'Sign In'}
                     </Text>
                   )}
@@ -362,7 +369,7 @@ export default function AuthScreen() {
                   }}
                   disabled={isLoading}
                 >
-                  <Text style={styles.switchText}>
+                  <Text variant="caption" color="secondary" style={styles.switchText}>
                     {isSignUp
                       ? 'Already have an account? Sign In'
                       : "Don't have an account? Sign Up"}
@@ -372,13 +379,13 @@ export default function AuthScreen() {
             )}
             
             {error && (
-              <Text style={[styles.errorText, { color: theme.colors.feedback.danger }]}>{error}</Text>
+              <Text variant="caption" color="danger" style={styles.errorText}>{error}</Text>
             )}
           </View>
           
           <View style={styles.divider}>
             <View style={[styles.dividerLine, { backgroundColor: theme.colors.border.default }]} />
-            <Text style={[styles.dividerText, { color: theme.colors.text.muted }]}>OR</Text>
+            <Text variant="caption" color="muted" style={styles.dividerText}>OR</Text>
             <View style={[styles.dividerLine, { backgroundColor: theme.colors.border.default }]} />
           </View>
           
@@ -387,10 +394,10 @@ export default function AuthScreen() {
             onPress={handleOfflineMode}
             disabled={isLoading}
           >
-            <Text style={[styles.secondaryButtonText, { color: theme.colors.text.primary }]}>Continue Offline</Text>
+            <Text variant="body" color="primary" style={styles.secondaryButtonText}>Continue Offline</Text>
           </TouchableOpacity>
           
-          <Text style={[styles.offlineNote, { color: theme.colors.text.muted }]}>
+          <Text variant="caption" color="muted" style={styles.offlineNote}>
             You can use the app offline, but your tasks won't sync across devices
           </Text>
         </ScrollView>
@@ -408,113 +415,111 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: defaultTheme.spacing.xl,
+    paddingVertical: defaultTheme.spacing.xxl,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: defaultTheme.spacing.xxl,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 8,
+    fontSize: defaultTheme.fontSize['2xl'],
+    fontWeight: defaultTheme.fontWeight.bold,
+    marginBottom: defaultTheme.spacing.s,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: defaultTheme.fontSize.m,
   },
   authModeSelector: {
     flexDirection: 'row',
-    borderRadius: 8,
-    padding: 4,
-    marginBottom: 24,
+    borderRadius: defaultTheme.radius.m,
+    padding: defaultTheme.spacing.xs,
+    marginBottom: defaultTheme.spacing.xl,
   },
   authModeButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
+    paddingVertical: defaultTheme.spacing.s,
+    paddingHorizontal: defaultTheme.spacing.m,
+    borderRadius: defaultTheme.radius.s,
     alignItems: 'center',
   },
   authModeButtonActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...defaultTheme.elevationPresets.button,
   },
   authModeText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: defaultTheme.fontSize.s,
+    fontWeight: defaultTheme.fontWeight.medium,
   },
   authModeTextActive: {
-    fontWeight: '600',
+    fontWeight: defaultTheme.fontWeight.semibold,
   },
   form: {
-    marginBottom: 24,
+    marginBottom: defaultTheme.spacing.xl,
   },
   input: {
-    height: 48,
+    height: defaultTheme.sizing.control.l,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    marginBottom: 16,
+    borderRadius: defaultTheme.radius.m,
+    paddingHorizontal: defaultTheme.spacing.m,
+    fontSize: defaultTheme.fontSize.m,
+    marginBottom: defaultTheme.spacing.m,
   },
   button: {
-    height: 48,
-    borderRadius: 8,
+    height: defaultTheme.sizing.control.l,
+    borderRadius: defaultTheme.radius.m,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: defaultTheme.spacing.m,
   },
   primaryButton: {
+    // Primary button styles are applied inline
   },
   secondaryButton: {
+    // Secondary button styles are applied inline
   },
   disabledButton: {
     opacity: 0.6,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: defaultTheme.fontSize.m,
+    fontWeight: defaultTheme.fontWeight.semibold,
   },
   secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: defaultTheme.fontSize.m,
+    fontWeight: defaultTheme.fontWeight.semibold,
   },
   switchButton: {
     alignItems: 'center',
   },
   switchText: {
-    fontSize: 14,
+    fontSize: defaultTheme.fontSize.s,
   },
   instructionText: {
-    fontSize: 14,
-    marginBottom: 16,
+    fontSize: defaultTheme.fontSize.s,
+    marginBottom: defaultTheme.spacing.m,
     textAlign: 'center',
   },
   errorText: {
-    fontSize: 14,
-    marginTop: 8,
+    fontSize: defaultTheme.fontSize.s,
+    marginTop: defaultTheme.spacing.s,
     textAlign: 'center',
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginVertical: defaultTheme.spacing.xl,
   },
   dividerLine: {
     flex: 1,
     height: 1,
   },
   dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
+    marginHorizontal: defaultTheme.spacing.m,
+    fontSize: defaultTheme.fontSize.s,
   },
   offlineNote: {
-    fontSize: 12,
+    fontSize: defaultTheme.fontSize.xs,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: defaultTheme.spacing.s,
   },
 });

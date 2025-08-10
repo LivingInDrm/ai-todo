@@ -8,6 +8,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Text, Button } from '@ui';
 import { useThemeValues } from '@lib/theme/ThemeProvider';
+import { lightTheme as defaultTheme } from '@lib/theme';
 
 interface DateTimeButtonProps {
   value?: Date;
@@ -132,7 +133,7 @@ const DateTimeButton: React.FC<DateTimeButtonProps> = ({
           onPress={handleClear}
           activeOpacity={0.7}
         >
-          <Text variant="body" color="secondary" style={{ fontSize: 18 }}>
+          <Text variant="body" color="secondary" style={{ fontSize: theme.fontSize.l }}>
             ✕
           </Text>
         </TouchableOpacity>
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: defaultTheme.spacing.m,
   },
   button: {
     flexDirection: 'row',
@@ -220,19 +221,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   icon: {
-    fontSize: 16,
-    marginRight: 8,
+    fontSize: defaultTheme.fontSize.m,
+    marginRight: defaultTheme.spacing.s,
   },
   clearButton: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pickerContainer: {
-    // Dynamic styles moved to inline
-  },
   pickerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  pickerContainer: {
+    // Styles are applied inline
   },
 });
 

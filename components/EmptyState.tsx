@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { TaskView } from '../lib/types';
 import { Text } from '@ui';
+import { lightTheme as defaultTheme } from '@lib/theme';
 import { useThemeValues } from '@lib/theme/ThemeProvider';
 
 interface EmptyStateProps {
@@ -82,8 +83,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emoji: {
-    fontSize: 64,
-    marginBottom: 20,
+    fontSize: defaultTheme.fontSize['3xl'],
+    marginBottom: defaultTheme.spacing.l,
   },
 });
 

@@ -15,6 +15,7 @@ import { TaskData } from '../lib/types';
 import { debounce } from 'lodash';
 import { Text, Button } from '@ui';
 import { useThemeValues } from '@lib/theme/ThemeProvider';
+import { lightTheme as defaultTheme } from '@lib/theme';
 
 interface TaskDetailSheetProps {
   task?: TaskData;
@@ -144,7 +145,7 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        snapPoints={['75%', '90%']}
+        snapPoints={undefined} // Use responsive defaults
         onClose={handleClose}
         enablePanDownToClose={true}
       >
@@ -240,18 +241,18 @@ const TaskDetailSheet = forwardRef<TaskDetailSheetRef, TaskDetailSheetProps>(
 
 const styles = StyleSheet.create({
   scrollContent: {
-    // Dynamic styles moved to inline
+    // Styles are applied inline for responsiveness
   },
   titleInput: {
-    minHeight: 60,
+    minHeight: defaultTheme.sizing.minCellHeight,
   },
   urgentButton: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   urgentIcon: {
-    fontSize: 16,
-    marginRight: 8,
+    fontSize: defaultTheme.fontSize.m,
+    marginRight: defaultTheme.spacing.s,
   },
 });
 

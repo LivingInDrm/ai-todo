@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { Text } from '@ui';
 import { useThemeValues } from '@lib/theme/ThemeProvider';
+import { lightTheme as defaultTheme } from '@lib/theme';
 
 interface SnackbarProps {
   visible: boolean;
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
   },
   message: {
     flex: 1,
-    marginRight: 8,
+    marginRight: defaultTheme.spacing.s,
   },
 });
 

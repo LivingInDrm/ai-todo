@@ -10,6 +10,7 @@ export const fontSize = {
   l: 18,    // Large (emphasized body)
   xl: 24,   // Extra large (section headers)
   '2xl': 32, // 2x Extra large (page titles)
+  '3xl': 48, // 3x Extra large (display text)
 } as const;
 
 export const fontWeight = {

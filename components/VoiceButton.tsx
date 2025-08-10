@@ -9,6 +9,7 @@ import {
 import recorder from '../features/voice/recorder';
 import { Text } from '@ui';
 import { useThemeValues } from '@lib/theme/ThemeProvider';
+import { lightTheme as defaultTheme } from '@lib/theme';
 
 interface VoiceButtonProps {
   onRecordingComplete?: (audioUri: string) => void;
@@ -139,29 +140,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   button: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: defaultTheme.sizing.fab,
+    height: defaultTheme.sizing.fab,
+    borderRadius: defaultTheme.sizing.fab / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   icon: {
-    fontSize: 24,
+    fontSize: defaultTheme.fontSize.xl,
   },
   recordingIndicator: {
     position: 'absolute',
     top: -5,
     right: -5,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: defaultTheme.spacing.l,
+    height: defaultTheme.spacing.l,
+    borderRadius: defaultTheme.spacing.l / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: defaultTheme.spacing.s,
+    height: defaultTheme.spacing.s,
+    borderRadius: defaultTheme.spacing.s / 2,
   },
 });
 

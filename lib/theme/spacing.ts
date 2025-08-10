@@ -9,7 +9,9 @@ export const spacing = {
   m: 12,    // Medium
   l: 16,    // Large
   xl: 20,   // Extra large
+  xxl: 24,  // 2x Extra large (alias)
   '2xl': 24, // 2x Extra large
+  xxxl: 32, // 3x Extra large (alias)
   '3xl': 32, // 3x Extra large
   '4xl': 40, // 4x Extra large
   '5xl': 48, // 5x Extra large

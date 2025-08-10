@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { router } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../features/auth/authStore';
 import { isSupabaseConfigured } from '../services/supabase';
 import { useTheme } from '../lib/theme/ThemeProvider';
@@ -31,6 +32,7 @@ export default function Index() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg.surface }]}>
+      <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       <ActivityIndicator size="large" color={theme.colors.accent.primary} />
     </View>
   );

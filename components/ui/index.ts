@@ -9,3 +9,5 @@ export { Badge, type BadgeProps } from './Badge';
 export { Card, type CardProps } from './Card';
 export { Sheet, SheetHeader, SheetContent, SheetFooter } from './Sheet';
 export { ResponsiveContainer, type ResponsiveContainerProps } from './ResponsiveContainer';
+export { SectionHeader, type SectionHeaderProps } from './SectionHeader';
+export { Header, type HeaderProps } from './Header';

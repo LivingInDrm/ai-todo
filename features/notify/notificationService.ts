@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { authService } from '../auth/authService';
+import { lightTheme } from '../../lib/theme';
 
 // 配置通知行为
 Notifications.setNotificationHandler({
@@ -48,7 +49,7 @@ class NotificationService {
         name: 'default',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
+        lightColor: lightTheme.colors.brand.notification,
       });
     }
     

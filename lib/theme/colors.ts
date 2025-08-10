@@ -47,6 +47,19 @@ export interface ColorTokens {
   overlay: {
     backdrop: string;     // Modal backdrop
   };
+  
+  // Utility colors
+  utility: {
+    shadow: string;           // Shadow color for elevation
+    activityIndicator: string; // Activity indicator/spinner color
+    divider: string;          // Divider/separator color
+    placeholder: string;      // Input placeholder text color
+  };
+  
+  // Brand-specific colors
+  brand: {
+    notification: string;     // Android notification channel color
+  };
 }
 
 // Light theme colors
@@ -82,6 +95,15 @@ export const lightColors: ColorTokens = {
   overlay: {
     backdrop: 'rgba(0, 0, 0, 0.5)',
   },
+  utility: {
+    shadow: '#000000',
+    activityIndicator: '#8E8E93',
+    divider: '#E5E5EA',
+    placeholder: '#8E8E93',
+  },
+  brand: {
+    notification: '#FF231F7C',
+  },
 };
 
 // Dark theme colors
@@ -116,5 +138,14 @@ export const darkColors: ColorTokens = {
   },
   overlay: {
     backdrop: 'rgba(0, 0, 0, 0.8)',
+  },
+  utility: {
+    shadow: '#000000',
+    activityIndicator: '#8E8E93',
+    divider: '#38383A',
+    placeholder: '#8E8E93',
+  },
+  brand: {
+    notification: '#FF231F7C',
   },
 };

@@ -3,6 +3,7 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
+  Dimensions,
 } from 'react-native';
 import BottomSheetLib, {
   BottomSheetBackdrop,
@@ -11,6 +12,7 @@ import BottomSheetLib, {
 } from '@gorhom/bottom-sheet';
 import { Text } from '@ui';
 import { useThemeValues } from '@lib/theme/ThemeProvider';
+import { useScreenSize } from '@lib/theme/responsive';
 
 interface BottomSheetProps {
   children: React.ReactNode;
@@ -24,7 +26,7 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
   (
     {
       children,
-      snapPoints = [400, 600],  // Use fixed pixel values as default
+      snapPoints,
       onClose,
       enablePanDownToClose = true,
       title,
@@ -32,6 +34,24 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
     ref
   ) => {
     const theme = useThemeValues();
+    const screenSize = useScreenSize();
+    const { height: screenHeight } = Dimensions.get('window');
+    
+    // Responsive snap points based on screen size
+    const responsiveSnapPoints = useMemo(() => {
+      if (snapPoints) return snapPoints;
+      
+      switch (screenSize) {
+        case 'compact':
+          return ['65%', Math.min(420, screenHeight * 0.8)];
+        case 'regular':
+          return ['60%', 480];
+        case 'wide':
+          return ['50%', 560];
+        default:
+          return ['60%', 480];
+      }
+    }, [snapPoints, screenSize, screenHeight]);
     
     const renderBackdrop = useCallback(
       (props: any) => (
@@ -57,10 +77,11 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
     return (
       <BottomSheetModal
         ref={ref}
-        snapPoints={snapPoints}
+        snapPoints={responsiveSnapPoints}
         backdropComponent={renderBackdrop}
         enablePanDownToClose={enablePanDownToClose}
         onChange={handleSheetChanges}
+        topInset={0}
         handleIndicatorStyle={{
           backgroundColor: theme.colors.border.default,
           width: 36,
@@ -77,7 +98,6 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
         keyboardBlurBehavior="restore"  // Restore position when keyboard dismisses
         detached={false}  // Ensure it's attached to the screen
         bottomInset={0}  // Reset bottom inset
-        style={styles.modal}  // Add explicit styling
       >
         {title ? (
           <View style={styles.container}>
@@ -101,7 +121,7 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
                   height: theme.spacing.xl,
                 }]}
               >
-                <Text variant="body" color="secondary" style={{ fontSize: 20 }}>
+                <Text variant="body" color="secondary" style={{ fontSize: theme.fontSize.l }}>
                   ✕
                 </Text>
               </TouchableOpacity>
@@ -119,13 +139,7 @@ const BottomSheet = forwardRef<BottomSheetModal, BottomSheetProps>(
 export const BottomSheetProvider = BottomSheetModalProvider;
 
 const styles = StyleSheet.create({
-  modal: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 999,
-  },
+  // Note: avoid styling the modal container to prevent layout side-effects
   container: {
     flex: 1,
     paddingBottom: 20,

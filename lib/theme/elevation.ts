@@ -101,4 +101,6 @@ export const elevationPresets = {
   button: elevation.xs,
   floatingButton: elevation.m,
   snackbar: elevation.m,
+  listItem: elevation.xs,
+  header: elevation.s,
 } as const;

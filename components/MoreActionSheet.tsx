@@ -8,6 +8,7 @@ import { BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import BottomSheet from './BottomSheet';
 import { Text } from '@ui';
 import { useThemeValues } from '@lib/theme/ThemeProvider';
+import { lightTheme as defaultTheme } from '@lib/theme';
 
 interface MoreActionSheetProps {
   onPostpone: (option: 'tonight' | 'tomorrow' | 'weekend' | 'custom') => void;
@@ -88,10 +89,10 @@ const MoreActionSheet = forwardRef<MoreActionSheetRef, MoreActionSheetProps>(
     return (
       <BottomSheet
         ref={bottomSheetRef}
-        snapPoints={['50%']}  // Back to what was working
+        snapPoints={undefined}  // Use responsive defaults
         enablePanDownToClose={true}
       >
-        <View style={[styles.container, {
+        <View style={[{
           paddingHorizontal: theme.spacingGroups.padding.sheet,
           paddingTop: theme.spacing.m,
           paddingBottom: theme.spacing.xl,
@@ -169,17 +170,14 @@ const MoreActionSheet = forwardRef<MoreActionSheetRef, MoreActionSheetProps>(
 );
 
 const styles = StyleSheet.create({
-  container: {
-    // Dynamic styles moved to inline
-  },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionIcon: {
-    fontSize: 20,
-    marginRight: 12,
-    width: 24,
+    fontSize: defaultTheme.fontSize.l,
+    marginRight: defaultTheme.spacing.m,
+    width: defaultTheme.sizing.icon.l,
     textAlign: 'center',
   },
 });

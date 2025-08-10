@@ -4,7 +4,6 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  Text,
   RefreshControl,
   Alert,
 } from 'react-native';
@@ -13,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import useTaskStore from '../features/task/taskStore';
 import useDraftStore from '../features/draft/draftStore';
+import { Text } from '@ui';
 import { TaskData, TaskView } from '../lib/types';
 import TaskCell from '../components/TaskCell';
 import TaskTabs from '../components/TaskTabs';
@@ -28,6 +28,7 @@ import { taskSyncService } from '../features/task/taskSync';
 import { useAuthStore } from '../features/auth/authStore';
 import reminderService from '../features/notify/reminderService';
 import { useTheme } from '../lib/theme/ThemeProvider';
+import { lightTheme as defaultTheme } from '../lib/theme';
 
 export default function TaskListScreen() {
   const { theme } = useTheme();
@@ -273,25 +274,25 @@ export default function TaskListScreen() {
     if (drafts.length === 0 || currentView !== TaskView.Focus) return null;
 
     return (
-      <View style={[styles.draftSection, { backgroundColor: theme.colors.accent.primary + '10', marginBottom: theme.spacing.s }]}>
+      <View style={{ backgroundColor: theme.colors.accent.primary + '10', marginBottom: theme.spacing.s }}>
         <TouchableOpacity
           style={[styles.draftHeader, { paddingHorizontal: theme.spacing.l, paddingVertical: theme.spacing.m }]}
           onPress={toggleExpanded}
           activeOpacity={0.7}
         >
           <Text style={[styles.draftTitle, { color: theme.colors.accent.primary, fontSize: theme.fontSize.m }]}>⏳ 待确认 ({drafts.length})</Text>
-          <Text style={[styles.expandIcon, { color: theme.colors.accent.primary, fontSize: theme.fontSize.xs }]}>{isExpanded ? '▼' : '▶'}</Text>
+          <Text style={{ color: theme.colors.accent.primary, fontSize: theme.fontSize.xs }}>{isExpanded ? '▼' : '▶'}</Text>
         </TouchableOpacity>
         
         {isExpanded && (
-          <View style={[styles.draftList, { paddingBottom: theme.spacing.s }]}>
+          <View style={{ paddingBottom: theme.spacing.s }}>
             {drafts.slice(0, 10).map((draft) => (
               <View key={draft.id} style={styles.draftItem}>
                 <View style={[styles.draftOperationIcon, { width: theme.sizing.icon.m, marginLeft: theme.spacing.l, marginRight: theme.spacing.xs }]}>
-                  {draft.operation === 'add' && <Text style={[styles.addIcon, { color: theme.colors.accent.primary, fontSize: theme.fontSize.m }]}>➕</Text>}
-                  {draft.operation === 'update' && <Text style={[styles.updateIcon, { color: theme.colors.feedback.warning, fontSize: theme.fontSize.m }]}>✏️</Text>}
-                  {draft.operation === 'complete' && <Text style={[styles.completeIcon, { color: theme.colors.feedback.success, fontSize: theme.fontSize.m }]}>✅</Text>}
-                  {draft.operation === 'delete' && <Text style={[styles.deleteIcon, { color: theme.colors.feedback.danger, fontSize: theme.fontSize.m }]}>🗑</Text>}
+                  {draft.operation === 'add' && <Text variant="body" color="link">➕</Text>}
+                  {draft.operation === 'update' && <Text variant="body" color="warning">✏️</Text>}
+                  {draft.operation === 'complete' && <Text variant="body" color="success">✅</Text>}
+                  {draft.operation === 'delete' && <Text variant="body" color="danger">🗑</Text>}
                 </View>
                 <TouchableOpacity
                   style={[styles.draftCheckbox, { borderColor: theme.colors.accent.primary, width: theme.sizing.icon.m, height: theme.sizing.icon.m, borderRadius: theme.radius.s, marginLeft: theme.spacing.xs, marginRight: theme.spacing.s }]}
@@ -318,11 +319,11 @@ export default function TaskListScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.bg.surface }]} edges={['top']}>
-      <StatusBar style="dark" />
+      <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       
-      <View style={[styles.header, { paddingVertical: theme.spacing.s }]}>
+      <View style={{ paddingVertical: theme.spacing.s }}>
         <View style={[styles.headerTop, { paddingHorizontal: theme.spacing.l }]}>
-          <View style={[styles.headerPlaceholder, { width: theme.sizing.control.m }]} />
+          <View style={{ width: theme.sizing.control.m }} />
           <TaskTabs
             currentView={currentView}
             onViewChange={setCurrentView}
@@ -335,7 +336,7 @@ export default function TaskListScreen() {
             onPress={() => router.push('/settings')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.settingsIcon, { fontSize: theme.fontSize.xl }]}>⚙️</Text>
+            <Text>⚙️</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -350,8 +351,7 @@ export default function TaskListScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
         contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: 100 },
+          { paddingBottom: theme.spacing.xxxl * 2 },
           currentTasks.length === 0 && styles.emptyListContent,
         ]}
       />
@@ -362,7 +362,7 @@ export default function TaskListScreen() {
           onRecordingComplete={handleVoiceRecordingComplete}
         />
         <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.colors.feedback.success, shadowColor: theme.isDark ? theme.colors.text.primary : '#000', width: theme.sizing.fab, height: theme.sizing.fab, borderRadius: theme.sizing.fab / 2 }]}
+          style={[styles.addButton, { backgroundColor: theme.colors.feedback.success, width: theme.sizing.fab, height: theme.sizing.fab, borderRadius: theme.sizing.fab / 2 }]}
           onPress={handleNewTask}
           activeOpacity={0.7}
         >
@@ -409,27 +409,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-  },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerPlaceholder: {
-  },
   settingsButton: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingsIcon: {
-  },
-  listContent: {
-  },
   emptyListContent: {
     flex: 1,
-  },
-  draftSection: {
   },
   draftHeader: {
     flexDirection: 'row',
@@ -439,10 +429,6 @@ const styles = StyleSheet.create({
   draftTitle: {
     fontWeight: '500',
   },
-  expandIcon: {
-  },
-  draftList: {
-  },
   draftItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -450,14 +436,6 @@ const styles = StyleSheet.create({
   draftOperationIcon: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  addIcon: {
-  },
-  updateIcon: {
-  },
-  completeIcon: {
-  },
-  deleteIcon: {
   },
   draftCheckbox: {
     borderWidth: 2,
@@ -481,12 +459,6 @@ const styles = StyleSheet.create({
   addButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...defaultTheme.elevationPresets.floatingButton,
   },
 });

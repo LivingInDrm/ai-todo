@@ -10,6 +10,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { TaskData } from '../lib/types';
 import { Text, Badge } from '@ui';
 import { useThemeValues } from '@lib/theme/ThemeProvider';
+import { lightTheme as defaultTheme } from '@lib/theme';
 
 interface TaskCellProps {
   task: TaskData;
@@ -151,7 +152,7 @@ const TaskCell: React.FC<TaskCellProps> = ({
               <Text 
                 style={{ 
                   color: theme.colors.feedback.success,
-                  fontSize: 14,
+                  fontSize: theme.fontSize.s,
                   fontWeight: theme.fontWeight.bold 
                 }}
               >
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    lineHeight: 22,
+    lineHeight: Math.round(defaultTheme.fontSize.m * defaultTheme.lineHeight.normal),
   },
   completedTitle: {
     textDecorationLine: 'line-through',
@@ -234,8 +235,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: defaultTheme.fontSize.l,
+    fontWeight: defaultTheme.fontWeight.bold,
   },
   draftIndicator: {
     position: 'absolute',
