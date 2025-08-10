@@ -314,7 +314,7 @@ export class TaskRepository {
     } else {
       return this.update(id, {
         status: TaskStatus.Active,
-        completedTs: null,
+        completedTs: undefined,
       });
     }
   }
@@ -337,7 +337,7 @@ export class TaskRepository {
     if (!task) return null;
     
     return this.update(id, {
-      pinnedAt: task.pinnedAt ? null : Date.now(),
+      pinnedAt: task.pinnedAt ? undefined : Date.now(),
     });
   }
   
@@ -350,18 +350,19 @@ export class TaskRepository {
   
   /**
    * Map database row to TaskData
+   * Converts null values from DB to undefined for internal use
    */
   private mapRowToTask(row: any): TaskData {
     return {
       id: row.id,
       title: row.title,
-      dueTs: row.due_ts,
+      dueTs: row.due_ts === null ? undefined : row.due_ts,
       urgent: row.urgent === 1,
       status: row.status,
       pending: row.pending === 1,
-      completedTs: row.completed_ts,
-      pinnedAt: row.pinned_at,
-      remoteId: row.remote_id,
+      completedTs: row.completed_ts === null ? undefined : row.completed_ts,
+      pinnedAt: row.pinned_at === null ? undefined : row.pinned_at,
+      remoteId: row.remote_id === null ? undefined : row.remote_id,
       createdTs: row.created_ts,
       updatedTs: row.updated_ts,
     };

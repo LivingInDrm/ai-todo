@@ -1,12 +1,12 @@
 export interface TaskData {
   id: string;
   title: string;
-  dueTs?: number | null;
+  dueTs?: number;
   urgent: boolean;
   status: number;
   pending: boolean;
-  completedTs?: number | null;
-  pinnedAt?: number | null;
+  completedTs?: number;
+  pinnedAt?: number;
   remoteId?: string; // Supabase ID for sync
   createdTs: number;
   updatedTs: number;

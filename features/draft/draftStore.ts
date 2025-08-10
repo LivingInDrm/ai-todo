@@ -310,7 +310,7 @@ const useDraftStore = create<DraftStore>((set, get) => ({
               if (op.previousState) {
                 await taskRepository.update(op.taskId, {
                   status: TaskStatus.Active,
-                  completedTs: null,
+                  completedTs: undefined,
                 });
               }
               break;
