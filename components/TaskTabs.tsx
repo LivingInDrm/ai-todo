@@ -36,8 +36,6 @@ const TaskTabs: React.FC<TaskTabsProps> = ({
     <View style={[styles.container, { 
       backgroundColor: theme.colors.bg.subtle,
       borderRadius: theme.radius.m,
-      marginHorizontal: theme.spacing.l,
-      marginVertical: theme.spacing.m,
       padding: theme.spacing.xs,
     }]}>
       {tabs.map((tab) => {
@@ -61,24 +59,30 @@ const TaskTabs: React.FC<TaskTabsProps> = ({
             onPress={() => onViewChange(tab.key)}
             activeOpacity={0.7}
           >
-            <Text
-              variant="body"
-              color={isActive ? 'primary' : 'secondary'}
-              style={{
-                fontWeight: isActive ? theme.fontWeight.semibold : theme.fontWeight.medium,
-              }}
-            >
-              {tab.label}
-            </Text>
-            {tab.count > 0 && (
-              <Badge
-                variant={isActive ? 'primary' : 'muted'}
-                size="sm"
-                style={{ marginLeft: theme.spacing.s }}
+            <View style={styles.tabContent}>
+              <Text
+                variant="caption"
+                color={isActive ? 'primary' : 'secondary'}
+                style={{
+                  fontWeight: isActive ? theme.fontWeight.semibold : theme.fontWeight.medium,
+                }}
               >
-                {tab.count}
-              </Badge>
-            )}
+                {tab.label}
+              </Text>
+              {tab.count > 0 && (
+                <Badge
+                  variant={isActive ? 'primary' : 'muted'}
+                  size="sm"
+                  style={{ marginLeft: theme.spacing.xs }}
+                  textStyle={{ 
+                    fontSize: theme.fontSize.s,
+                    lineHeight: theme.fontSize.s * 1.2,
+                  }}
+                >
+                  {tab.count}
+                </Badge>
+              )}
+            </View>
           </TouchableOpacity>
         );
       })}
@@ -92,6 +96,10 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

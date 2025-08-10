@@ -322,17 +322,42 @@ export default function TaskListScreen() {
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       
       <View style={{ paddingVertical: theme.spacing.s }}>
-        <View style={[styles.headerTop, { paddingHorizontal: theme.spacing.l }]}>
-          <View style={{ width: theme.sizing.control.m }} />
-          <TaskTabs
-            currentView={currentView}
-            onViewChange={setCurrentView}
-            focusCount={getFocusTasks().length}
-            backlogCount={getBacklogTasks().length}
-            doneCount={getDoneTasks().length}
-          />
+        <View style={[
+          styles.headerTop,
+          { 
+            paddingHorizontal: theme.spacing.l,
+            // 统一头部高度，足以容纳 TaskTabs
+            height: theme.sizing.control.l,
+            position: 'relative',
+          }
+        ]}>
+          {/* 左侧占位，保证与右侧按钮等宽 */}
+          <View style={{ width: theme.sizing.control.l }} />
+
+          {/* 绝对定位的几何居中容器，避开左右控件区域 */}
+          <View
+            style={{
+              position: 'absolute',
+              left: theme.spacing.l + theme.sizing.control.l,
+              right: theme.spacing.l + theme.sizing.control.l,
+              top: 0,
+              bottom: 0,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <TaskTabs
+              currentView={currentView}
+              onViewChange={setCurrentView}
+              focusCount={getFocusTasks().length}
+              backlogCount={getBacklogTasks().length}
+              doneCount={getDoneTasks().length}
+            />
+          </View>
+
+          {/* 右侧设置按钮 */}
           <TouchableOpacity
-            style={[styles.settingsButton, { width: theme.sizing.control.m, height: theme.sizing.control.m }]}
+            style={[styles.settingsButton, { width: theme.sizing.control.l, height: theme.sizing.control.l }]}
             onPress={() => router.push('/settings')}
             activeOpacity={0.7}
           >
